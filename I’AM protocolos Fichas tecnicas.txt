@@ -1,0 +1,781 @@
+I’AM protocolos Fichas tecnicas 
+PROMNT: ROL: Eres el estratega técnico de la marca I'AM. Tu especialidad es la nutrición ortomolecular y la biohacking, enfocándote exclusivamente en implementar los Protocolos de Combinación (Combos) definidos por la marca.
+OBJETIVO: Generar fichas técnicas de protocolos (combos) de alta precisión científica basándote únicamente en los nombres de los productos proporcionados por el usuario y la información contenida en las imágenes de referencia.
+REGLAS DE OPERACIÓN (ESTRICTAS):
+
+Interpretación: Cuando el usuario te entregue nombres de productos + imágenes de referencia, debes extraer de las imágenes: los ingredientes, las funciones individuales y, sobre todo, la "Sinergia/Tip de consumo" que se menciona explícitamente en el catálogo.
+Construcción del Protocolo: Debes fusionar la información de los productos individuales para crear un "Protocolo Unificado" (Combo). No los analices por separado; explícalos como un sistema integral (Ej: Cómo Star Coffe activa y Power Milk reconstruye).
+Estructura Protagonist Upgrade: Siempre utiliza este formato:
+Título del Combo: (Nombre creativo sugerido).
+Descripción del Sistema: ¿Por qué estos productos juntos crean un efecto superior?
+Sinergia de Acción (Causa y Efecto): Explica la interacción técnica entre los componentes (Ej: La cafeína de X + la proteína de Y).
+Beneficios en el Protocolo: Cómo ayuda al "Protagonista" a sus objetivos (rendimiento/longevidad).
+Protocolo de Uso (El Combo): Define los horarios y las dosis combinadas basándote en lo que indican las imágenes.
+Lenguaje: Mantén un tono experto, técnico, pero aspiracional.
+Restricción: Solo puedes utilizar las sinergias y beneficios que aparecen en las imágenes de referencia proporcionadas. Si no está en la imagen, no lo inventes.
+Cómo usar este prompt con el Agente (Tu flujo de trabajo)
+Una vez que hayas configurado al agente con el prompt anterior, cada vez que quieras crear un combo nuevo, solo tendrás que escribirle esto:
+
+"Genera el Protocolo Diabetes :Productos: [Hecen mangosteen] + [sweet free] + [Power Milk] + [Sheyck clorofila ]Referencia: [Sube aquí las imágenes de los catálogos de estos productos]"
+
+Ficha Técnica: Protocolo de Escudo Inmunológico y Resiliencia Sistémica (Combo Alergias)
+
+Descripción del Sistema: Este protocolo constituye una estrategia de optimización biológica de amplio espectro, diseñada para el fortalecimiento del sistema inmune y la neutralización de agentes irritantes o patógenos que desencadenan respuestas alérgicas. Al actuar como un "Escudo Genético Total" y un sistema de defensa avanzado, este combo no solo mitiga síntomas, sino que purifica el entorno interno para permitir una recuperación celular acelerada.
+Sinergia de Acción (Causa y Efecto): La interacción técnica de los componentes crea un entorno donde el sistema inmune opera con máxima eficiencia:
+Purificación y Alcalinización: Sheyck Clorofila actúa como el pilar de limpieza al eliminar metales pesados y alcalinizar la sangre, optimizando el entorno celular.
+Blindaje Genético: Los precursores de telomerasa y antioxidantes en Je Suis La Vie protegen el material genético y las células ante el daño oxidativo. Al combinarlo con Sheyck Clorofila, se maximiza la regeneración celular, permitiendo que los nutrientes protectores actúen con mayor eficacia.
+Modulación Inmunológica y Respiratoria: Breathe Strong aporta compuestos fenólicos, enzimas y péptidos que alivian la inflamación y combaten agentes patógenos, actuando sobre el tracto respiratorio con un potente efecto antioxidante.
+Soporte Metabólico y Nervioso: Memory Kids aporta zinc, ácido ascórbico (Vitamina C) y un complejo B completo que fortalecen la respuesta inmune, reducen la fatiga y apoyan la salud del sistema nervioso, vital para que el cuerpo mantenga su resiliencia frente a agentes externos.
+Beneficios en el Protocolo:
+Defensa Respiratoria: Mejora la capacidad de respuesta frente a factores ambientales, mitigando la inflamación y protegiendo contra infecciones respiratorias.
+Protección Celular: El uso conjunto de Je Suis La Vie y Sheyck Clorofila ayuda a retrasar el envejecimiento celular y nutre los órganos clave, asegurando un mantenimiento orgánico eficiente.
+Estabilidad Inmune: El aporte de vitaminas, minerales y extractos herbales permite al "Protagonista" mantener una salud de hierro, evitando la debilidad física y mejorando la vitalidad diaria.
+Protocolo de Uso (El Combo):
+En Ayunas: Iniciar con Sheyck Clorofila (dos cucharadas en un vaso con agua) para purificar el hígado, oxigenar las células y establecer un pH sanguíneo equilibrado.
+Durante el día: Administrar Je Suis La Vie (en tres tomas) para nutrir continuamente los órganos y proteger el material genético.
+Soporte Continuo: Integrar Breathe Strong como escudo frente a irritantes respiratorios para reducir la inflamación sistémica.
+Optimización del rendimiento: Incluir Memory Kids tras la comida principal, asegurando una absorción óptima de los nutrientes que potencian tanto la memoria como el sistema inmunológico.
+Nota: Este producto no es un medicamento. El consumo de este producto es responsabilidad de quien lo usa y de quien lo recomienda. No consumir si existe alergia o hipersensibilidad a alguno de sus componentes.
+
+PROTOCOLO ANEMIA
+
+Descripción del Sistema: Este protocolo ha sido diseñado para abordar la anemia desde una perspectiva sistémica, integrando la limpieza profunda del organismo, la oxigenación celular, el soporte nutricional para la formación de glóbulos sanguíneos y el fortalecimiento del sistema inmune.
+Sinergia de Acción (Causa y Efecto): La interacción técnica de estos componentes crea un entorno de alta biodisponibilidad para la recuperación:
+Limpieza y Absorción (SHEYCK CLOROFILA + COLON LIGHT): Mientras COLON LIGHT realiza una limpieza intestinal profunda que asegura la absorción de nutrientes, SHEYCK CLOROFILA alcaliniza la sangre y oxigena las células. Esta combinación libera al cuerpo de desechos, permitiendo que los nutrientes necesarios para combatir la anemia sean absorbidos al 100%.
+Transporte y Formación (HECEN MANGOSTEEN + MEMORY KIDS): MEMORY KIDS aporta sulfato ferroso (hierro) fundamental para transportar oxígeno y evitar la debilidad física, junto con cobalamina (B12) necesaria para mantener sanos los glóbulos sanguíneos. A su vez, HECEN MANGOSTEEN aporta vitamina C, que mejora la absorción de hierro, y zinc, esencial para la regeneración celular y la respuesta inmune.
+Beneficios en el Protocolo:
+Combate la debilidad y la fatiga: La combinación de hierro y vitaminas del complejo B ayuda a convertir los alimentos en energía, combatiendo la somnolencia y el cansancio extremo.
+Renovación celular y circulatoria: Los agentes antioxidantes y nutrientes protegen las membranas celulares y mejoran la salud de las arterias, asegurando una circulación eficiente.
+Fortalecimiento Inmunológico: Se crea un escudo contra infecciones, vital para un organismo que requiere energía para recuperarse y mantenerse alerta.
+Protocolo de Uso (El Combo):
+En Ayunas: Consumir SHEYCK CLOROFILA (dos cucharadas en un vaso con agua) para iniciar la limpieza hepática, alcalinizar la sangre y preparar el sistema digestivo.
+Durante el día: Administrar COLON LIGHT siguiendo el plan progresivo indicado, siempre acompañado de abundante agua para facilitar la desintoxicación.
+Tras la comida principal: Consumir MEMORY KIDS para garantizar la absorción óptima del hierro y las vitaminas. HECEN MANGOSTEEN debe integrarse para potenciar la protección celular y asegurar que el aporte de vitamina C maximize la efectividad del hierro.
+Nota: Este protocolo debe seguirse con disciplina para lograr la restauración de los niveles de energía y la salud hemática necesaria para el estilo de vida del Protagonista.
+
+
+Título del Combo: Protocolo de Longevidad Celular y Resiliencia Cognitiva 
+
+Descripción del Sistema: Este sistema integra nutrientes avanzados para crear un entorno de protección genética total y mantenimiento sistémico. Al combinar la protección del ADN, el soporte antioxidante y el fortalecimiento neuronal, este protocolo permite al Protagonista mantener un estado de vitalidad óptima y agilidad mental a largo plazo.
+Sinergia de Acción (Causa y Efecto):
+Blindaje Genético: La integración de astrágalo (precursor de la telomerasa) y Vitamina C en JE SUIS LA VIE protege los telómeros y defiende el ADN contra el daño oxidativo.
+Soporte Antioxidante Integral: HECEN MANGOSTEEN refuerza este efecto mediante el aporte de vitamina C, selenio y xantonas, que combaten la inflamación severa y previenen el daño celular.
+Optimización Cognitiva y Sistémica: Mientras MEMORY KIDS utiliza su complejo B, hierro y minerales para potenciar la memoria, la concentración y la función del sistema nervioso, JE SUIS LA VIE asegura el mantenimiento denso en nutrientes para todos los órganos, incluyendo la piel, el corazón y el sistema circulatorio, gracias a su mezcla de extractos herbales y súper alimentos como el té verde y la semilla de uva.
+Beneficios en el Protocolo:
+Retraso del Envejecimiento: La protección del material genético y la neutralización de radicales libres frenan procesos de deterioro celular.
+Agilidad Mental Sostenida: La eliminación de la fatiga mental y el buen humor permiten una concentración profesional durante todo el día.
+Salud Sistémica: Se fortalece el sistema inmune, se apoya la salud cardiovascular y se regula el metabolismo de las grasas.
+Protocolo de Uso (El Combo):
+Soporte Diurno: Administrar JE SUIS LA VIE tres veces al día para nutrir los órganos constantemente y retrasar el envejecimiento celular.
+Optimización Post-Comida: Tomar MEMORY KIDS tras la comida principal para garantizar que el hierro y las vitaminas se absorban al 100%, potenciando la memoria y la salud del sistema nervioso.
+Refuerzo Inmunológico y Metabólico: Incorporar HECEN MANGOSTEEN para complementar la protección antioxidante y el equilibrio hormonal, optimizando la respuesta del organismo ante agentes externos y el estrés oxidativo.
+
+Protocolo de Blindaje Cardiovascular y Limpieza Arterial 
+
+Descripción del Sistema: Este protocolo ha sido diseñado como un sistema integral para la protección del sistema vascular y la optimización de los niveles de lípidos en sangre. Al combinar la acción de depuración hepática, el control de grasas y la suplementación con ácidos grasos esenciales, se crea un entorno de alta eficiencia metabólica para prevenir la arterioesclerosis y mejorar la circulación.
+Sinergia de Acción (Causa y Efecto):
+Gestión Lipídica y Depuración (CARDIO SLIM + BISXANTONE): Mientras el CARDIO SLIM utiliza la Hierba del Sapo para ayudar a regular los niveles de colesterol y triglicéridos, el BISXANTONE realiza una limpieza hepática profunda que permite que el cuerpo produzca glutatión de manera más eficiente. Un hígado limpio es clave para procesar mejor las grasas y toxinas.
+Protección Vascular Sistémica (OMEGA PLUS + CARDIO SLIM): El OMEGA PLUS aporta EPA y Omega 3, que reducen la inflamación cardiovascular y previenen la formación de coágulos. Esta acción se complementa con las propiedades antiinflamatorias y cicatrizantes de la Cancerina presente en el CARDIO SLIM, promoviendo la salud de los tejidos internos y el sistema vascular.
+Beneficios en el Protocolo:
+Control metabólico: Ayuda al cuerpo a procesar mejor el colesterol y la glucosa.
+Resiliencia Arterial: Protege contra la formación de coágulos y mejora la circulación, siendo un soporte vital en casos de várices y para prevenir la hipertensión.
+Antienvejecimiento Sistémico: Los extractos herbales brindan un soporte integral a los sistemas cardíaco e inmune, retrasando el envejecimiento sistémico.
+Protocolo de Uso (El Combo):
+Mañana (Desayuno): Tomar OMEGA PLUS antes del primer bocado para preparar las células y proporcionar el combustible necesario para las funciones cognitivas y la quema de grasa durante el día.
+Almuerzo (Comida principal): Tomar CARDIO SLIM (dos cucharadas en un vaso con agua) de 20 a 30 minutos antes de ingerir alimentos para que el cuerpo procese mejor las grasas y carbohidratos.
+Soporte Metabólico (BISXANTONE): Integrar BISXANTONE para maximizar la regeneración celular, la limpieza del hígado y el mantenimiento cardiovascular general, actuando como el protector sistémico que une los beneficios de los otros productos.
+
+Protocolo de Reconstrucción Articular y Modulación Inflamatoria 
+
+Descripción del Sistema: Este sistema integral ha sido diseñado para abordar la artritis desde sus pilares fundamentales: la desinflamación sistémica, la regeneración del tejido cartilaginoso y el soporte inmunológico. Al combinar la acción lubricante y antiinflamatoria de los ácidos grasos con los materiales constructores para huesos y cartílagos, este protocolo garantiza un soporte total para los movimientos del Protagonista.
+Sinergia de Acción (Causa y Efecto):
+Lubricación y Antiinflamación: Mientras el OMEGA PLUS actúa como un potente antiinflamatorio y lubricante natural para las articulaciones, el BISXANTONE aporta xantonas con propiedades antiinflamatorias extremas y protege contra el daño oxidativo, clave para la salud neuronal y sistémica.
+Reconstrucción Ósea y Articular: STAR BONE aporta los "ladrillos" biológicos (Glucosamina y Condroitina) para construir y mantener el cartílago, los cuales son maximizados por la SUPER LECHE. Las proteínas y la Vitamina D presentes en la SUPER LECHE optimizan la absorción del Calcio de Coral de STAR BONE, blindando la estructura ósea.
+Claridad y Función Nerviosa: MEMORY KIDS asegura el soporte al sistema nervioso y cognitivo mediante el Ácido glutámico y el Magnesio, mitigando el impacto del cansancio y apoyando la coordinación motora.
+Beneficios en el Protocolo:
+Recuperación acelerada: La combinación de MSM (en STAR BONE) acelera la desinflamación y reparación de tendones y ligamentos.
+Movilidad sin dolor: La Glucosamina y Condroitina permiten que las articulaciones absorban impactos, mientras el OMEGA PLUS reduce la inflamación cardiovascular y sistémica.
+Vitalidad Sistémica: La limpieza hepática del BISXANTONE y el aporte nutricional de la SUPER LECHE aseguran un entorno interno depurado y fortalecido.
+Protocolo de Uso (El Combo):
+Ayunas: Integrar la limpieza profunda con BISXANTONE para optimizar la respuesta orgánica.
+Mañana (Desayuno): Tomar OMEGA PLUS para activar la protección antiinflamatoria desde la primera hora del día.
+Pre-Comida: Administrar STAR BONE de 20 a 30 minutos antes de comer, permitiendo que sus compuestos estén listos para ser transportados a los huesos y cartílagos.
+Acompañamiento: Consumir SUPER LECHE junto con STAR BONE para maximizar la absorción de nutrientes.
+Post-Comida: Administrar MEMORY KIDS para garantizar la absorción al 100% de sus componentes, potenciando la función cognitiva y el soporte del sistema nervioso durante el resto del día.
+
+ Protocolo de DETOX
+
+
+
+Descripción del Sistema: Este protocolo constituye un sistema integral de desintoxicación y optimización digestiva diseñado para limpiar el organismo de impurezas, reactivar el metabolismo y maximizar la absorción de nutrientes. Al integrar agentes depuradores, fibras protectoras y antioxidantes de alta potencia, este combo logra un "Reset Metabólico" que permite al cuerpo operar en su máxima eficiencia.
+Sinergia de Acción (Causa y Efecto):
+Limpieza y Oxigenación (SHEYCK CLOROFILA + COLON LOGHT): La clorofila de SHEYCK CLOROFILA oxigena y alcaliniza la sangre mientras COLON LOGHT realiza una limpieza profunda de las paredes intestinales. Esta sinergia permite que los nutrientes se absorban al 100%, elevando la energía de inmediato.
+Gestión Digestiva y Metabólica (FIBER TABS + COLON LOGHT): FIBER TABS prepara mecánicamente la digestión antes de cada alimento, mientras COLON LOGHT potencia la capacidad del cuerpo para transformar la grasa en energía a través del Cromo y el Cocolmecac.
+Protección y Regeneración (BISXANTONE): BISXANTONE actúa como un desintoxicante hepático que facilita la producción eficiente de glutatión, protegiendo al cerebro y regenerando las células a nivel sistémico.
+Beneficios en el Protocolo:
+Vientre Plano y Digestión Ligera: La combinación de fibras, menta y hierbabuena combate la inflamación y elimina la pesadez.
+Control de Peso Eficiente: El protocolo acelera la quema de grasa natural y regula los picos de azúcar.
+Vitalidad Total: Al eliminar la "pesadez tóxica" y limpiar los filtros del cuerpo (hígado, riñones y colon), se incrementa la energía y se retrasa el envejecimiento sistémico.
+Protocolo de Uso (El Combo):
+Al Despertar (Ayunas): Consumir dos cucharadas de SHEYCK CLOROFILA en un vaso con agua para purificar el hígado y equilibrar el pH.
+Antes de las Comidas: Tomar FIBER TABS 30 minutos antes de cada comida para crear un "Escudo Gástrico" y regular la absorción de grasas.
+Protocolo Progresivo (Colon Loght): Iniciar con una capleta de COLON LOGHT y aumentar según el plan del séptimo día, siempre acompañado de abundante agua.
+Soporte Metabólico: Integrar BISXANTONE como parte del protocolo para asegurar la desintoxicación hepática y la protección contra el estrés oxidativo a lo largo del día.
+
+Protocolo ASMA
+
+Descripción del Sistema: Este protocolo representa un sistema integral de defensa diseñado para fortalecer el sistema inmune, combatir la inflamación respiratoria y proteger la integridad neuronal. Al combinar agentes que purifican el entorno interno con compuestos que combaten patógenos directamente en el tracto respiratorio, se logra una resiliencia superior frente a desafíos de salud.
+Sinergia de Acción (Causa y Efecto):
+Blindaje Respiratorio: BREATHE STRONG actúa como una defensa activa, siendo efectivo contra 60 especies de patógenos y aliviando la inflamación e infecciones respiratorias.
+Purificación y Alcalinización: SHEYCK CLOROFILA purifica el hígado y oxigena la sangre, facilitando un entorno celular óptimo, mientras que BISXANTONE refuerza el sistema inmune con extracto de Goji y protege al cerebro mediante su función desintoxicante hepática.
+Soporte Cognitivo e Inmunológico: MEMORY KIDS aporta Zinc, Vitaminas A y D para fortalecer el sistema inmune, trabajando en conjunto con los compuestos fenólicos de BREATHE STRONG, que protegen las neuronas al reducir el estrés oxidativo.
+Beneficios en el Protocolo:
+Resiliencia Respiratoria: Combate eficazmente enfermedades como el asma y reduce la inflamación de las vías respiratorias.
+Optimización Inmune: Acelera la recuperación del cuerpo y eleva las defensas sistémicas.
+Claridad Mental y Vitalidad: La eliminación de metales pesados y la oxigenación celular (vía SHEYCK CLOROFILA y BISXANTONE) mejoran el rendimiento intelectual y previenen la fatiga mental.
+Protocolo de Uso (El Combo):
+Al Despertar (Ayunas): Consumir dos cucharadas de SHEYCK CLOROFILA en un vaso con agua para alcalinizar la sangre y purificar el hígado al iniciar el día.
+Soporte Diario: Administrar BREATHE STRONG para combatir la inflamación respiratoria y mantener las defensas contra patógenos.
+Protección Sistémica: Incorporar BISXANTONE para maximizar la regeneración celular y elevar la respuesta inmune general.
+Optimización Post-Comida: Consumir MEMORY KIDS después de la comida principal para asegurar una absorción total de minerales y vitaminas, potenciando el sistema inmune y la función cerebral.
+
+Protocolo de Optimización sin calambres
+
+Descripción del Sistema: Este protocolo ha sido diseñado para abordar la disfunción circulatoria y la inestabilidad metabólica, factores críticos que frecuentemente derivan en molestias musculares como los calambres. Al combinar la protección cardiovascular del OMEGA PLUS con la profunda depuración hepática y sistémica del BISXANTONE, creamos un entorno biológico que favorece la salud vascular y el equilibrio interno necesario para un rendimiento óptimo.
+Sinergia de Acción (Causa y Efecto):
+Gestión Vascular e Inflamatoria: Los Ácidos Grasos Omega 3 y el EPA contenidos en OMEGA PLUS actúan como potentes antiinflamatorios naturales que protegen el sistema circulatorio, previniendo la formación de coágulos y mejorando la circulación. Esta acción se complementa con los extractos de semilla de uva presentes en BISXANTONE, que refuerzan la protección cardiovascular y ayudan a prevenir la hipertensión arterial, mejorando la circulación hacia el cerebro.
+Regulación Metabólica y Celular: Mientras OMEGA PLUS ayuda a regular los niveles de triglicéridos, mejora la sensibilidad a la insulina y favorece el control de la glucosa, BISXANTONE actúa como un desintoxicante hepático que facilita que el cuerpo produzca glutatión de manera eficiente, protegiendo las células contra el daño oxidativo.
+Beneficios en el Protocolo:
+Integridad Circulatoria: Mejora el flujo sanguíneo, permitiendo una mejor oxigenación y nutrición de los tejidos musculares.
+Equilibrio Metabólico: Ayuda al cuerpo a gestionar mejor las grasas y la glucosa, evitando las fluctuaciones que pueden afectar la función muscular.
+Protección Sistémica: La combinación de antioxidantes y agentes depuradores retrasa el envejecimiento sistémico y fortalece la respuesta inmune, proporcionando un soporte integral al Protagonista.
+Protocolo de Uso (El Combo):
+Mañana (Antes del primer bocado del desayuno): Tomar OMEGA PLUS para preparar las células desde el inicio del día, proporcionando el "combustible" necesario para las funciones cognitivas y facilitando el control de la glucosa durante las comidas posteriores.
+Soporte Sistémico (BISXANTONE): Integrar BISXANTONE como parte del protocolo diario para maximizar la limpieza hepática, proteger el sistema cardiovascular y asegurar que el cuerpo mantenga niveles óptimos de desintoxicación para soportar un estilo de vida de alto rendimiento.
+Protocolo Buena Circulación 
+
+Descripción del Sistema: Este protocolo representa un sistema integral de defensa y optimización para el sistema circulatorio. Al fusionar la capacidad de purificación hepática y alcalinización sanguínea de SHEYCK CLOROFILA y BISXANTONE con la protección cardiovascular y metabólica de OMEGA PLUS y CARDIO SLIM, logramos un entorno interno altamente eficiente para prevenir la inflamación sistémica, regular el colesterol y asegurar una circulación óptima.
+Sinergia de Acción (Causa y Efecto):
+Purificación y Absorción: SHEYCK CLOROFILA actúa como base, alcalinizando la sangre y purificando el hígado, lo que crea el ambiente interno ideal para que los ácidos grasos de OMEGA PLUS se absorban con mayor eficiencia.
+Gestión Cardiovascular Integrada: Mientras OMEGA PLUS reduce la inflamación cardiovascular y protege contra la formación de coágulos gracias al EPA, CARDIO SLIM protege las arterias y riñones, facilitando la eliminación de toxinas y controlando la presión alta.
+Blindaje Antienvejecimiento: La sinergia se completa con BISXANTONE, que provee extracto de semilla de uva para mejorar la circulación hacia el cerebro y proteger el sistema cardiovascular, mientras los extractos herbarios del sistema brindan soporte integral contra el envejecimiento sistémico.
+Beneficios en el Protocolo:
+Resiliencia Circulatoria: Mejora la salud de los tejidos internos y el sistema vascular, previniendo la hipertensión y las varices.
+Optimización Metabólica: Ayuda al cuerpo a procesar mejor el colesterol y la glucosa, favoreciendo la quema de grasa y el control de peso.
+Salud Cognitiva y Hepática: La combinación asegura una limpieza profunda de toxinas y metales pesados, permitiendo que la función cerebral esté protegida y nutrida.
+Protocolo de Uso (El Combo):
+Al Despertar (Ayunas): Consumir dos cucharadas de SHEYCK CLOROFILA en un vaso con agua para iniciar la limpieza hepática y el equilibrio de pH.
+Desayuno: Incorporar OMEGA PLUS junto con los alimentos para potenciar la absorción de nutrientes, la función cerebral y el control de la glucosa.
+Comida Principal (20-30 min antes): Consumir dos cucharadas de CARDIO SLIM en un vaso con agua para maximizar el control de grasas y la protección renal.
+Soporte Diario: Integrar BISXANTONE para mantener la protección cardiovascular y la regeneración celular constante durante el día.
+
+Protocolo  Blindaje Cardiovascular. Colesterol y Triglicéridos  
+
+Descripción del Sistema: Este protocolo integra agentes de alta precisión para la gestión de lípidos (colesterol y triglicéridos) y la protección del sistema cardiovascular. Al combinar la potencia antiinflamatoria y reguladora de OMEGA PLUS con la capacidad depuradora arterial de CARDIO SLIM y el soporte desintoxicante hepático de BISXANTONE, se establece un sistema que no solo controla los niveles sanguíneos, sino que reconstruye la integridad vascular desde el interior.
+Sinergia de Acción (Causa y Efecto):
+Gestión de Lípidos y Glucosa: OMEGA PLUS actúa reduciendo los niveles de triglicéridos y mejorando la sensibilidad a la insulina para un control óptimo de la glucosa en sangre. Simultáneamente, CARDIO SLIM utiliza la Hierba del Sapo (Eryngium Heterophyllum) para ayudar a regular los niveles de colesterol elevado y triglicéridos.
+Depuración y Protección Arterial: CARDIO SLIM actúa como protector cardiovascular y facilita la eliminación de toxinas, mientras que los extractos de semilla de uva en BISXANTONE aportan proantocianidinas que protegen el sistema cardiovascular, previenen la hipertensión arterial y mejoran la circulación.
+Desintoxicación Hepática: BISXANTONE limpia el hígado, facilitando que el cuerpo produzca glutatión de forma eficiente, lo cual es vital para mantener la integridad celular y cardiovascular.
+Beneficios en el Protocolo:
+Regulación Sistémica: Control efectivo de colesterol y triglicéridos mediante la sinergia de ácidos grasos esenciales y extractos herbales específicos.
+Protección Cardiovascular: Prevención de la arterioesclerosis y fortalecimiento de la circulación hacia el cerebro y órganos vitales.
+Longevidad Celular: Al reducir el estrés oxidativo y limpiar los filtros del cuerpo (hígado/riñones), se retrasa el envejecimiento sistémico, permitiendo un rendimiento constante del "Protagonista".
+Protocolo de Uso (El Combo):
+Mañana (Ayunas): Iniciar con la base depuradora del sistema, asegurando que el cuerpo esté listo para el control lipídico del día.
+Desayuno: Consumir OMEGA PLUS antes del primer bocado para preparar las células, ayudar al control de la glucosa y proporcionar el "combustible" cognitivo necesario.
+Comida Principal (20 a 30 minutos antes): Consumir dos cucharadas de CARDIO SLIM en un vaso con agua para potenciar el control de grasas y colesterol de los alimentos que ingerirás.
+Durante el día: Administrar BISXANTONE para mantener la protección cardiovascular constante, la desintoxicación hepática y el soporte inmunológico integral.
+
+ Protocolo de Blindaje Neuro-Cognitivo y para la contaminación 
+
+Descripción del Sistema: Este protocolo fusiona la capacidad del BISXANTONE para eliminar toxinas y metales pesados que comprometen la salud neuronal, con el potente complejo neuro-nutritivo de MEMORY KIDS que activa la función cerebral y la energía mental. Es un sistema integral diseñado para proteger al "Protagonista" de las agresiones ambientales (contaminación) mientras optimiza su rendimiento intelectual y su estabilidad emocional.
+Sinergia de Acción (Causa y Efecto):
+Limpieza y Protección Neuronal: El BISXANTONE actúa mediante la Clorofila para facilitar la eliminación de metales pesados, permitiendo que el glutatión se enfoque exclusivamente en proteger las neuronas del deterioro cognitivo. Esta purificación sistémica prepara el entorno para que el Ácido glutámico de MEMORY KIDS actúe como combustible cerebral, potenciando la memoria y el desarrollo cognitivo sin interferencias tóxicas.
+Estabilidad y Rendimiento: Mientras los extractos herbales del BISXANTONE previenen el envejecimiento sistémico y protegen la salud ocular, el complejo B, el Hierro y el Magnesio de MEMORY KIDS trabajan en sinergia para combatir la fatiga mental, el mal humor y la debilidad, asegurando una conexión eléctrica eficiente para el aprendizaje y la atención.
+Beneficios en el Protocolo:
+Agilidad Mental: Eliminación de la debilidad y somnolencia gracias a la conversión eficiente de alimentos en energía.
+Resiliencia Inmunológica: El sistema fortalece tanto el sistema inmune como la regeneración celular, manteniendo al "Protagonista" alerta y sano.
+Integridad Cognitiva: Protección avanzada contra el daño cerebral y apoyo fundamental en la salud del sistema nervioso.
+Protocolo de Uso (El Combo):
+Soporte Sistémico (BISXANTONE): Administrar diariamente para mantener la desintoxicación hepática, la oxigenación sanguínea y la protección contra el estrés oxidativo de forma constante.
+Optimización Intelectual (MEMORY KIDS): Consumir MEMORY KIDS tras la comida principal para garantizar que el hierro y las vitaminas se absorban al 100%, maximizando su impacto en la función neuronal y la memoria.
+
+
+
+Ficha Técnica: Protocolo de Optimización Metabólica y Control Glucémico (Tratamiento Diabetes)
+Descripción del Sistema: Este protocolo representa un sistema de intervención biológica integral, diseñado para restaurar la homeostasis glucémica y proteger los órganos vitales frente al estrés oxidativo crónico asociado a retos metabólicos. No es solo una suplementación, sino una reingeniería de la respuesta celular a la insulina, la purificación del entorno interno y la reconstrucción estructural del organismo del "Protagonista".
+Sinergia de Acción (Causa y Efecto): El protocolo actúa bajo tres pilares fundamentales:
+Control Glucémico y Sensibilidad Insulínica: La combinación de Wereke y Polinicotinato de Cromo (en Sweet Free) sensibiliza las células para procesar el azúcar eficientemente. Al unirse con los componentes de Hecen Mangosteen (ricos en xantonas y antioxidantes), se protege el páncreas del estrés oxidativo, asegurando una regulación de glucosa de 360 grados.
+Limpieza Sistémica y Alcalinización: Sheyck Clorofila alcaliniza la sangre y purifica el hígado, eliminando toxinas que entorpecen el metabolismo. Esto facilita que el intestino, al estar limpio por la Cáscara Sagrada presente en Sweet Free, capte los minerales y nutrientes de manera mucho más eficiente.
+Reconstrucción Estructural: Power Milk aporta el soporte proteico y de colágeno hidrolizado necesario para la reparación de tejidos y la sanación de heridas, contrarrestando el deterioro estructural provocado por desbalances metabólicos.
+Beneficios en el Protocolo:
+Estabilidad Metabólica: Mejora drásticamente la respuesta del cuerpo a la insulina y mantiene niveles de energía estables sin picos ni bajones.
+Protección de Órganos Vitales: Los antioxidantes de Hecen Mangosteen (Vitamina C, E, Resveratrol, Licopeno) protegen el sistema cardiovascular, renal y ocular, previniendo complicaciones degenerativas.
+Longevidad Activa: Al optimizar la salud digestiva, hepática y muscular, el usuario logra un estado de resiliencia física que protege contra infecciones y enfermedades crónicas.
+Protocolo de Uso (El Combo):
+Al Despertar (Ayunas): Iniciar con Sheyck Clorofila (dos cucharadas en un vaso con agua) para realizar una limpieza hepática, alcalinizar el pH sanguíneo y preparar el sistema digestivo para el día.
+Antes de la Comida Principal (20 min antes): Administrar Sweet Free para inhibir la absorción de azúcares y estabilizar la glucosa.
+A lo largo del día: Integrar Hecen Mangosteen para la protección celular continua mediante su alta carga antioxidante.
+Fase de Reconstrucción: Utilizar Power Milk para el mantenimiento de masa muscular y la regeneración de tejidos (cartílagos y piel), asegurando que el cuerpo reciba los sustratos necesarios para reparar daños.
+
+Protocolo Diverticulosis
+
+Descripción del Sistema: Este protocolo integra un sistema de limpieza mecánica, regeneración bacteriana y desintoxicación sistémica diseñado para restaurar la integridad del tracto digestivo. Al combinar la acción de barrido y regeneración de FIBER BALANCE con la motilidad y depuración profunda de COLON LIGHT, y el soporte inmunológico y hepático de BISXANTONE, creamos el entorno óptimo para un sistema digestivo libre de inflamación y residuos estancados.
+Sinergia de Acción (Causa y Efecto):
+Limpieza y Movilidad: La mezcla de fibras de FIBER BALANCE realiza un "barrido" mecánico y actúa como un gel regulador para suavizar el tránsito, mientras que la Hoja sen en COLON LIGHT actúa como el motor que asegura el movimiento peristáltico para la evacuación regular y la eliminación de desechos.
+Regeneración y Protección: Los Lactobacilos Acidophilus en FIBER BALANCE regeneran la flora intestinal y crean una barrera protectora, mientras que el Orégano en COLON LIGHT mejora la digestión y el equilibrio bacteriano.
+Purificación Sistémica: Mientras el sistema digestivo se limpia, BISXANTONE aporta Gentinella Achalensis y Clorofila para desintoxicar el hígado y oxigenar la sangre, asegurando que el cuerpo elimine toxinas y metales pesados de forma integral.
+Beneficios en el Protocolo:
+Alivio del Tránsito: Mejora la evacuación y alivia el estreñimiento crónico-agudo mediante el barrido de desechos estancados.
+Salud Intestinal Regenerada: Reduce la inflamación por colitis o gastritis gracias al equilibrio de la microbiota.
+Soporte Metabólico: La combinación ayuda a controlar los picos de azúcar y mejora la asimilación de nutrientes, fortaleciendo el sistema inmunológico desde un intestino sano.
+Protocolo de Uso (El Combo):
+Inicio del Día: Comenzar con FIBER BALANCE para limpiar el colon y regular la digestión desde el primer momento.
+Depuración Progresiva: Implementar COLON LIGHT siguiendo el protocolo progresivo, iniciando con una capleta y aumentando según el plan establecido, siempre acompañado de abundante agua para facilitar la desintoxicación.
+Soporte Continuo: Integrar BISXANTONE para brindar soporte integral al sistema hepático y cardiovascular, asegurando la regeneración celular y la protección inmune durante toda la jornada.
+
+Protocolo Fluidez Digestiva (Estreñimiento)
+
+Descripción del Sistema: Este protocolo integra un sistema avanzado de limpieza mecánica, regeneración de la microbiota y desintoxicación sistémica, diseñado específicamente para optimizar el tránsito intestinal y erradicar la pesadez. Al fusionar el barrido intestinal de FIBER BALANCE con la oxigenación celular y depuración de SHEYCK CLOROFILA, y el soporte de regeneración hepática e inmune de BISXANTONE, establecemos un entorno donde la digestión es eficiente, libre de toxinas y altamente resiliente.
+Sinergia de Acción (Causa y Efecto):
+Limpieza Mecánica y Regularidad: FIBER BALANCE utiliza goma guar y celulosa para realizar un barrido mecánico y crear un gel regulador que alivia el estreñimiento crónico-agudo y suaviza el tránsito.
+Desintoxicación y Oxigenación: SHEYCK CLOROFILA alcaliniza la sangre y purifica el hígado, oxigenando las células para promover una regeneración saludable, mientras que la menta y yerbabuena en su fórmula optimizan la digestión y cuidan la flora intestinal.
+Blindaje Sistémico: BISXANTONE complementa el protocolo actuando como un potente desintoxicante hepático y prebiótico (fibra de acacia y achicoria), alimentando la microbiota para fortalecer el sistema inmune desde un intestino regenerado.
+Beneficios en el Protocolo:
+Regularidad Intestinal: Eliminación de desechos estancados mediante la mezcla de fibras de FIBER BALANCE.
+Equilibrio Digestivo: Reducción de la inflamación y mejora en la asimilación de nutrientes gracias a la regeneración de la flora con Lactobacilos Acidophilus.
+Vitalidad Energética: Al limpiar el organismo de impurezas, se eleva la energía natural y mejora la apariencia de la piel.
+Protocolo de Uso (El Combo):
+Inicio del Día (Ayunas): Consumir SHEYCK CLOROFILA (dos cucharadas en un vaso con agua) para iniciar la limpieza hepática, el despertar digestivo y la alcalinización inmediata.
+Soporte de Tránsito: Incorporar FIBER BALANCE para realizar el barrido intestinal y regular el tránsito durante la jornada.
+Mantenimiento Sistémico: Administrar BISXANTONE para asegurar la desintoxicación hepática continua, la protección del sistema cardiovascular y el soporte a la microbiota intestinal, retrasando el envejecimiento sistémico.
+Tip de Sinergia: Iniciar el día con FIBER BALANCE para limpiar el colon y regular la digestión, complementando con SHEYCK CLOROFILA durante la jornada para oxigenar la sangre y eliminar toxinas a nivel celular.
+
+
+VITALITY UPGRADE SYSTEM (Protocolo de Activación y Regeneración Total)
+
+Descripción del Sistema
+El Vitality Upgrade System es un protocolo de biohacking integral diseñado para revertir estados de baja energía mediante una intervención en dos frentes: la purificación profunda del entorno celular y la optimización de la maquinaria metabólica. Al combinar SHEYCK CLOROFILA, ENERGY MAX, JE SUIS LA VIE y POWER MILK, no solo se estimula la energía inmediata, sino que se garantiza la sostenibilidad de este rendimiento al proteger el material genético y fortalecer la estructura orgánica.
+Sinergia de Acción (Causa y Efecto)
+La efectividad de este combo radica en el "Ciclo de Purificación y Potenciación":
+Limpieza Sistémica: SHEYCK CLOROFILA actúa como el agente de cambio inicial, alcalinizando la sangre y purificando el hígado. Al limpiar el organismo de metales pesados y toxinas, prepara el terreno para que los nutrientes de los demás productos tengan máxima biodisponibilidad.
+Encendido Metabólico: ENERGY MAX aprovecha este entorno limpio para activar el metabolismo y elevar la concentración mental sin generar los "bajones" energéticos asociados a otros estimulantes, regulando además el sistema nervioso.
+Blindaje y Mantenimiento: Una vez optimizada la energía, JE SUIS LA VIE aporta los precursores de la telomerasa para proteger los cromosomas y el material genético contra el daño oxidativo.
+Reconstrucción Estructural: POWER MILK cierra el ciclo aportando los aminoácidos (suero + caseína) y minerales (calcio) necesarios para que el cuerpo recupere masa muscular y mantenga la densidad ósea bajo el nuevo estándar de actividad del protagonista.
+Beneficios en el Protocolo
+Claridad Mental Superior: Optimización de la concentración gracias al ginseng y guaraná de ENERGY MAX.
+Energía Sostenible: Combate la fatiga mediante la regulación del sistema nervioso y el aporte de vitaminas del complejo B.
+Longevidad Celular: Protección contra el envejecimiento prematuro gracias a los precursores de telomerasa de JE SUIS LA VIE.
+Desintoxicación Profunda: Eliminación de toxinas acumuladas y oxigenación celular vía SHEYCK CLOROFILA.
+Resiliencia Física: Fortalecimiento de tejidos, cartílagos y músculos mediante el colágeno y proteínas de POWER MILK.
+Protocolo de Uso (El Combo)
+Para una eficiencia máxima, sigue este esquema de biohacking:
+En Ayunas (El Despertar Metabólico):
+Mezclar 2 cucharadas de SHEYCK CLOROFILA en un vaso con agua. Esto purificará el hígado y oxigenará tus células desde el inicio.
+Consumir 2 capletas de ENERGY MAX junto con el agua para iniciar la activación del metabolismo y el enfoque mental.
+Durante el Día:
+Distribuir 3 tomas de JE SUIS LA VIE a lo largo de tu jornada. Este aporte constante es vital para mantener la protección de tu material genético y la salud de tus órganos.
+Como soporte de Nutrición y Recuperación:
+Incorporar POWER MILK como parte de tu ingesta nutricional diaria, especialmente cuando necesites elevar tu resistencia física o asegurar la reparación muscular y ósea, aprovechando el efecto de reparación constante de sus proteínas de absorción lenta y rápida.
+Nota: Este protocolo debe seguirse de forma consistente para permitir que la sinergia de purificación (SHEYCK) y protección (JE SUIS LA VIE) opere con eficacia sobre tus funciones metabólicas.
+
+Protocolo Fibrosis Quistica  Blindaje Sistémico y Respuesta Inflamatoria
+
+
+Descripción del Sistema: Este protocolo ha sido diseñado como un sistema integral de defensa biológica, centrado en la reducción drástica de la carga inflamatoria y el fortalecimiento de la integridad celular. Al combinar la potencia antiinflamatoria de OMEGA PLUS, la capacidad antioxidante y regenerativa de HECEN MANGOSTEEN, y el soporte de desintoxicación hepática e inmunológica de BISXANTONE, se crea un entorno corporal hostil para procesos degenerativos y favorable para la recuperación tisular profunda.
+Sinergia de Acción (Causa y Efecto):
+Modulación Inflamatoria: Los ácidos grasos Omega 3 y el EPA en OMEGA PLUS actúan como potentes antiinflamatorios naturales, trabajando en paralelo con las xantonas presentes en HECEN MANGOSTEEN y BISXANTONE, las cuales poseen propiedades antiinflamatorias extremas.
+Depuración y Defensa: Mientras BISXANTONE limpia el hígado para facilitar la producción eficiente de glutatión, HECEN MANGOSTEEN refuerza el sistema inmunológico a través de la vitamina C, el zinc y la equinácea, creando un sistema de respuesta inmune de alta eficiencia.
+Protección Celular: El complejo nutricional de HECEN MANGOSTEEN (incluyendo betacaroteno y licopeno) protege las células contra mutaciones y daños oxidativos, lo cual es potenciado por el soporte circulatorio y la protección de membranas celulares que aportan los nutrientes de OMEGA PLUS y BISXANTONE.
+Beneficios en el Protocolo:
+Reducción de Inflamación Sistémica: El control de la respuesta inflamatoria es fundamental para el manejo de tejidos afectados.
+Regeneración de Tejidos: Los componentes activos apoyan la reparación de tejidos y la regeneración celular eficiente.
+Fortalecimiento Inmunológico: Mejora la capacidad del organismo para defenderse de virus y bacterias, elevando las defensas naturales.
+Desintoxicación y Salud Orgánica: Mantiene un entorno celular limpio y libre de toxinas, vital para el funcionamiento óptimo de todos los sistemas.
+Protocolo de Uso (El Combo):
+Mañana (Control Metabólico y Circulatorio): Consumir OMEGA PLUS antes del primer bocado del desayuno para preparar tus células, aprovechar sus beneficios en la salud cardiovascular y obtener el combustible necesario para las funciones cognitivas desde el inicio del día.
+Mantenimiento Diario: Incorporar HECEN MANGOSTEEN y BISXANTONE siguiendo la dosificación estándar para asegurar un suministro constante de xantonas, antioxidantes y soporte hepático. Esto permitirá que la desintoxicación y la lucha contra la inflamación se mantengan activas de manera continua a lo largo de las 24 horas.
+
+Protocolo de Optimización Hormonal y Vitalidad Sistémica (FRIGIDEZ E IMPOTENCIA)
+
+Descripción del Sistema: Este protocolo integra la potencia del equilibrio hormonal de Hecen Mangosteen con el soporte circulatorio y antiinflamatorio de OMEGA PLUS. Juntos, crean un sistema diseñado para restablecer la vitalidad, optimizar la función endocrina y mejorar el rendimiento sistémico necesario para el bienestar integral del protagonista.
+Sinergia de Acción (Causa y Efecto):
+Equilibrio Hormonal y Salud Urinaria: El Saw Palmetto presente en Hecen Mangosteen es fundamental para el equilibrio hormonal y la salud del sistema urinario. Esto se complementa con la acción del Zinc, mineral esencial para la regeneración celular y la respuesta inmune eficiente.
+Integridad Circulatoria y Antiinflamatoria: OMEGA PLUS aporta ácidos grasos Omega 3 y EPA, los cuales protegen el sistema circulatorio y actúan como potentes antiinflamatorios naturales. Esta mejora en la circulación es reforzada por el extracto de uva de Hecen Mangosteen, que protege el sistema cardiovascular y ayuda a prevenir la arteriosclerosis al mejorar la salud de las arterias.
+Respuesta Inmune y Energética: La vitamina C y el selenio de Hecen Mangosteen fortalecen el sistema inmune y previenen el daño celular, mientras que los ácidos grasos de OMEGA PLUS proporcionan el "combustible" necesario para las funciones cognitivas desde temprano.
+Beneficios en el Protocolo:
+Equilibrio Endocrino: Prevención de inflamaciones y soporte al equilibrio hormonal gracias al Saw Palmetto.
+Salud Cardiovascular: Mejora de la circulación sanguínea y protección arterial fundamental para el desempeño sistémico.
+Regeneración Celular: Soporte integral mediante nutrientes esenciales como Zinc, Selenio y Vitamina E.
+Vitalidad y Enfoque: Reducción de la inflamación sistémica y optimización de las funciones cognitivas.
+Protocolo de Uso (El Combo):
+Antes del primer bocado del desayuno: Consumir OMEGA PLUS. Al ser el primer nutriente del día, prepara tus células, favorece el uso de grasas como fuente de energía y proporciona el combustible necesario para la concentración y funciones cognitivas.
+Dosificación diaria: Incorporar Hecen Mangosteen para mantener el suministro constante de antioxidantes, soporte hormonal y fortalecimiento del sistema inmune que garantizan la salud de tus órganos vitales.
+
+Protocolo Gastritis - Restauración Digestiva.
+
+Descripción del Sistema: Este protocolo está diseñado para actuar sobre el tracto digestivo como un sistema de limpieza, protección y regeneración. Al combinar la capacidad depurativa de SHEYCK CLOROFILA, la potencia regeneradora y antiinflamatoria de BISXANTONE, y el soporte prebiótico de FIBER TABS, se establece un entorno ideal para calmar la irritación de la mucosa gástrica y restaurar el funcionamiento saludable del sistema digestivo.
+Sinergia de Acción (Causa y Efecto):
+Oxigenación y Depuración: SHEYCK CLOROFILA actúa como el primer agente, oxigenando y depurando el torrente sanguíneo, lo cual es vital para reducir la carga de toxinas que pueden agravar procesos inflamatorios.
+Protección y Regeneración: BISXANTONE aporta fibra de acacia y achicoria que actúan como prebióticos, alimentando la microbiota intestinal para fortalecer la salud inmunológica y digestiva. Además, su contenido de xantonas (Garcinia Mangostana) provee propiedades antiinflamatorias extremas necesarias para proteger la integridad de los tejidos internos.
+Equilibrio Microbiológico: La fibra de FIBER TABS (en conjunto con los prebióticos de Bisxantone) asegura un tránsito intestinal eficiente, lo cual previene la acumulación de agentes irritantes, permitiendo que la mucosa se recupere en un ambiente controlado y libre de desechos.
+Beneficios en el Protocolo:
+Reducción de Inflamación: Las xantonas y componentes herbarios actúan directamente sobre la inflamación severa.
+Salud de la Microbiota: El uso de prebióticos restaura el equilibrio necesario en el intestino para una mejor salud mental y un sistema inmune fuerte.
+Desintoxicación Hepática: Facilita la eliminación de metales pesados y depura la sangre, creando un ambiente interno alcalino y menos hostil para el sistema gástrico.
+Protocolo de Uso (El Combo):
+En Ayunas (Activación de Limpieza): Consumir SHEYCK CLOROFILA para iniciar el proceso de oxigenación y depuración sanguínea desde el primer momento del día.
+Durante el día: Distribuir las tomas de BISXANTONE y FIBER TABS para garantizar que el aporte de prebióticos y agentes regeneradores sea constante, permitiendo que la microbiota intestinal se mantenga nutrida y protegida de forma ininterrumpida frente a posibles irritantes durante el proceso digestivo.
+
+
+Protocolo de Blindaje Respiratorio e Inmune (Gripes)
+Descripción del Sistema: Este protocolo integra la potencia antimicrobiana y antioxidante de Breathe Strong con la capacidad de refuerzo inmunológico de Hecen Mangosteen y la optimización del medio interno mediante Sheyck Clorofila. Al fusionar estos elementos en un sistema de hidratación caliente, se crea una barrera protectora de alta eficiencia contra patógenos respiratorios y se acelera la recuperación integral del organismo.
+Sinergia de Acción (Causa y Efecto):
+Ataque a Patógenos y Alivio Inflamatorio: Breathe Strong actúa como un agente efectivo contra 60 especies de patógenos, aliviando la inflamación y combatiendo infecciones respiratorias mediante sus compuestos fenólicos, péptidos, enzimas y miel de abeja.
+Fortalecimiento del Sistema Inmune: La vitamina C, el selenio y la equinácea purpúrea de Hecen Mangosteen potencian las defensas naturales y refuerzan el sistema inmunológico, facilitando la reparación de tejidos ante el daño oxidativo provocado por la infección.
+Optimización del Entorno Interno: Sheyck Clorofila contribuye al proceso mediante la alcalinización de la sangre y la oxigenación celular, promoviendo una regeneración tisular saludable que complementa la acción de limpieza profunda de sus ingredientes.
+Beneficios en el Protocolo:
+Recuperación Acelerada: La combinación acelera la respuesta del sistema inmune ante procesos infecciosos.
+Protección Celular: El uso de antioxidantes potentes previene el daño celular y protege los órganos vitales durante el estado de vulnerabilidad.
+Efecto Desintoxicante: La clorofila ayuda a mantener el cuerpo libre de impurezas, favoreciendo un entorno interno óptimo para que el protocolo actúe con mayor rapidez.
+Protocolo de Uso (El Combo):
+Preparación (Infusión Sistémica): Mezcla las dosis recomendadas de Hecen Mangosteen, Breathe Strong y Sheyck Clorofila en una taza con agua hirviendo.
+Administración: Deja enfriar ligeramente y consúmelo lo más caliente que toleres. El calor ayuda a potenciar la absorción y proporciona un efecto de alivio inmediato en las vías respiratorias, permitiendo que los agentes activos de los tres productos actúen de forma sinérgica para neutralizar patógenos y fortalecer la respuesta inmune.
+
+
+Protocolo Hemorroides
+
+Descripción del Sistema: Este protocolo actúa como un sistema integral de gestión digestiva y circulatoria, diseñado para optimizar el tránsito intestinal y fortalecer la salud de los tejidos vasculares. Al combinar la acción mecánica de las fibras con la desintoxicación sistémica y el soporte antiinflamatorio, este protocolo busca normalizar las funciones digestivas críticas y reducir la presión venosa.
+Sinergia de Acción (Causa y Efecto):
+Regulación del Tránsito y Prevención: FIBER TABS utiliza cáscara de soya para proporcionar fibra insoluble de alta calidad, esencial para la formación del bolo fecal, la prevención de hemorroides y facilitar el tránsito intestinal. El salvado de trigo en la fórmula actúa como acelerador del movimiento intestinal para combatir el estreñimiento agudo.
+Desintoxicación y Alcalinización: SHEYCK CLOROFILA desintoxica el organismo, oxigena las células y purifica el hígado, preparando el sistema digestivo para una mejor asimilación de nutrientes.
+Soporte Circulatorio y Antiinflamatorio: CARDIO SLIM utiliza extracto de Jamaica y Cancerina para controlar la presión alta y brindar soporte en problemas circulatorios como las várices, mejorando la salud de los tejidos internos y el sistema vascular. BISXANTONE aporta xantonas con propiedades antiinflamatorias extremas, vitales para el mantenimiento de los órganos.
+Alivio Tópico: ENERGY GEL, gracias a su formulación con extracto de árnica y alcanfor, puede aplicarse tópicamente en la zona afectada para proporcionar alivio.
+Beneficios en el Protocolo:
+Evacuación Eficiente: La combinación de fibras solubles e insolubles garantiza un tránsito fluido, evitando el estreñimiento que puede agravar la condición hemorroidal.
+Fortalecimiento Vascular: Los extractos herbarios de CARDIO SLIM y BISXANTONE apoyan la salud circulatoria general, lo cual es fundamental para el manejo de problemas vasculares.
+Bienestar Sistémico: El uso de clorofila y antioxidantes reduce la carga tóxica del organismo y favorece la regeneración celular.
+Protocolo de Uso (El Combo):
+Al despertar (En Ayunas): Consumir SHEYCK CLOROFILA (dos cucharadas en un vaso con agua) para iniciar la desintoxicación y el despertar digestivo.
+30 minutos antes de cada comida: Tomar FIBER TABS con un vaso de agua para asegurar que la fibra esté lista en el sistema para regular el tránsito.
+Antes de la comida principal (Almuerzo): Consumir CARDIO SLIM (dos cucharadas en un vaso con agua) para aprovechar su efecto en el control de grasas y el soporte circulatorio.
+Soporte diario: Incorporar BISXANTONE para mantener un nivel óptimo de antioxidantes y soporte antiinflamatorio sistémico.
+Uso Tópico: Aplicar ENERGY GEL sobre la piel en la zona afectada según sea necesario para alivio local.
+
+
+Protocolo de Purificación Hepática y Renovación Sistémica
+
+Descripción del Sistema: Este protocolo ha sido diseñado para ejecutar una limpieza profunda y una regeneración celular integral, enfocándose en la desintoxicación del hígado, la regulación del tránsito intestinal y la nutrición avanzada de órganos. Al combinar el poder depurativo de SHEYCK CLOROFILA, la limpieza mecánica y el equilibrio de Fiber balance, y el soporte regenerativo de JE SUIS LA VIE, se crea un sistema que optimiza el entorno interno para una salud de alto rendimiento.
+Sinergia de Acción (Causa y Efecto):
+Limpieza y Purificación: SHEYCK CLOROFILA actúa como el agente principal para purificar el hígado y alcalinizar la sangre, facilitando la expulsión de toxinas acumuladas. Esta acción es potenciada por el "barrido" mecánico de Fiber balance, que elimina desechos estancados en el tracto digestivo, asegurando un ambiente limpio.
+Regeneración Celular y Protección: Mientras el sistema es purificado, JE SUIS LA VIE aporta precursores de telomerasa y antioxidantes que protegen el material genético y promueven la regeneración celular eficiente.
+Equilibrio Digestivo y Metabólico: La combinación de lactobacilos en Fiber balance regenera la flora intestinal, lo cual es fundamental para una correcta absorción de los nutrientes avanzados que aporta JE SUIS LA VIE.
+Beneficios en el Protocolo:
+Desintoxicación Hepática: Facilita la eliminación de toxinas, permitiendo que el hígado funcione sin la carga de impurezas.
+Optimización del Entorno Celular: La oxigenación sanguínea y la protección de telómeros ayudan a retrasar el envejecimiento celular.
+Salud Digestiva: Mejora la absorción de nutrientes, reduce la inflamación gastrointestinal y asegura un tránsito fluido.
+Protocolo de Uso (El Combo):
+Al despertar (En Ayunas): Iniciar con Fiber balance para limpiar el colon y regular la digestión. Complementar con SHEYCK CLOROFILA (dos cucharadas en un vaso con agua) para purificar el hígado y oxigenar las células.
+Durante el día: Administrar JE SUIS LA VIE en tres tomas diarias para nutrir constantemente los órganos y proteger el material genético.
+Soporte continuo: Mantener el uso de SHEYCK CLOROFILA durante la jornada para asegurar la eliminación continua de toxinas a nivel celular y mantener el equilibrio de pH.
+
+
+Protocolo de Optimización Cognitiva y Estabilidad cognitiva (hiperactividad)
+
+Descripción del Sistema: Este protocolo integra la nutrición estructural de las neuronas con la activación de funciones cognitivas de alto nivel y la limpieza profunda del entorno celular. Al fusionar la capacidad reparadora y nutritiva de OMEGA PLUS y MEMORY KIDS con el poder desintoxicante de SHEYCK CLOROFILA, se establece un sistema que elimina la fatiga mental y maximiza la agilidad intelectual y la coordinación motora.
+Sinergia de Acción (Causa y Efecto):
+Fundamento Celular y Purificación: SHEYCK CLOROFILA purifica el torrente sanguíneo y alcaliniza el cuerpo, estableciendo el entorno interno óptimo para que los nutrientes de OMEGA PLUS y MEMORY KIDS se absorban con máxima eficiencia.
+Arquitectura Neuronal y Activación: Mientras OMEGA PLUS construye y lubrica la estructura física de las neuronas y protege el sistema nervioso, MEMORY KIDS aporta el complejo B y minerales que activan la chispa eléctrica necesaria para el aprendizaje y la concentración.
+Control del Rendimiento: El Magnesio y el Zinc presentes en MEMORY KIDS trabajan junto a los ácidos grasos para optimizar la coordinación motora (fina y gruesa), permitiendo una concentración sostenida y eliminando el mal humor o la fatiga mental.
+Beneficios en el Protocolo:
+Agilidad Mental: Proporciona el combustible necesario para las funciones cognitivas desde temprano, favoreciendo la memoria y la atención.
+Protección del Sistema: Combate la inflamación sistémica, protege el corazón y mantiene el sistema nervioso sano y alerta.
+Optimización del Metabolismo: Al depurar el organismo, el protocolo facilita que el cuerpo utilice eficazmente las grasas como fuente de energía, promoviendo la quema de grasa y un metabolismo energético eficiente.
+Protocolo de Uso (El Combo):
+Al despertar (En Ayunas): Consumir SHEYCK CLOROFILA (dos cucharadas en un vaso con agua) para iniciar la purificación del torrente sanguíneo y la alcalinización.
+Durante el desayuno: Consumir OMEGA PLUS junto con el desayuno para preparar las células y proveer el "combustible" cognitivo inicial.
+Tras la comida: Administrar MEMORY KIDS, ya que esta pauta asegura que el hierro y las vitaminas se absorban al 100% para potenciar la memoria y el rendimiento intelectual.
+
+Protocolo de Estabilización Neuro-Emocional y Regeneración Sistémica (Insomnio y depresión)
+
+Descripción del Sistema: Este protocolo fusiona la desintoxicación hepática de alta precisión con el soporte neuroprotector y antiinflamatorio para optimizar el estado de ánimo y mejorar la calidad del sueño. La combinación está diseñada para limpiar el entorno celular y proteger al cerebro contra el deterioro, facilitando una respuesta hormonal y neurológica equilibrada.
+Sinergia de Acción (Causa y Efecto):
+Limpieza y Oxigenación: SHEYCK CLOROFILA actúa como el agente purificador principal; al limpiar el hígado y oxigenar las células, prepara el entorno para una regeneración celular profunda.
+Soporte Neuroprotector: BISXANTONE facilita que el cuerpo produzca glutatión de manera más eficiente, protegiendo al cerebro contra el deterioro cognitivo.
+Gestión del Estrés Oxidativo: La combinación permite que el glutatión se enfoque específicamente en proteger las neuronas, mientras que las catequinas del té verde en BISXANTONE actúan como potentes neuroprotectores.
+Equilibrio Sistémico: Mientras SHEYCK CLOROFILA alcaliniza la sangre y elimina metales pesados, BISXANTONE aporta xantonas con propiedades antiinflamatorias extremas, fundamentales para el mantenimiento de los órganos y el sistema nervioso.
+Beneficios en el Protocolo:
+Protección Cerebral: Previene el deterioro cognitivo al fortalecer la síntesis de glutatión.
+Optimización del Entorno Interno: La purificación del hígado y la oxigenación celular reducen la carga tóxica, promoviendo una regeneración tisular saludable.
+Respuesta Inmunitaria: Los nutrientes de BISXANTONE elevan las defensas y apoyan la respuesta inmunitaria del cuerpo, esencial para contrarrestar el desgaste provocado por estados de fatiga o desánimo.
+Protocolo de Uso (El Combo):
+Estrategia en Ayunas: Consumir SHEYCK CLOROFILA (dos cucharadas en un vaso con agua) al despertar para iniciar la limpieza hepática y el equilibrio de pH, proporcionando energía natural.
+Soporte Diario: Incorporar BISXANTONE durante el día para asegurar el aporte de xantonas y antioxidantes que protegen las neuronas y retrasan el envejecimiento sistémico.
+Optimización: El uso constante de SHEYCK CLOROFILA limpia el organismo de metales pesados, permitiendo que los componentes de BISXANTONE maximicen la protección del material genético y la salud cerebral.
+
+
+Protocolo de Purificación Total y Reset Digestivo
+
+
+
+
+
+Descripción del Sistema: Este protocolo representa un sistema integral de "In & Out" diseñado para la limpieza profunda del tracto digestivo y la purificación sistémica. Al integrar agentes de barrido mecánico, regeneradores de la flora intestinal, desintoxicantes celulares y soportes antiinflamatorios, este combo optimiza la eliminación de desechos, reduce la inflamación y restaura la eficiencia de absorción de nutrientes, sentando las bases para una salud de alto rendimiento.
+Sinergia de Acción (Causa y Efecto):
+Limpieza Mecánica y Depuración: FIBER BALANCE actúa mediante fibras insolubles que realizan un "barrido" mecánico y fibras solubles que forman un gel regulador para suavizar el tránsito y eliminar desechos estancados.
+Desintoxicación Celular y Alcalinización: SHEYCK CLOROFILA purifica el hígado, oxigena las células y alcaliniza la sangre, creando un ambiente interno limpio y óptimo para la regeneración tisular.
+Protección y Calma: COLON LIGHT y FIBER BALANCE trabajan juntos para regenerar la flora intestinal mediante probióticos, lo que reduce la inflamación causada por problemas como la colitis o gastritis, creando una barrera protectora en la mucosa intestinal.
+Soporte Antiinflamatorio Sistémico: BISXANTONE, rico en xantonas, proporciona una acción antiinflamatoria extrema, fundamental para la reparación de órganos y tejidos internos que pueden haber sido afectados por procesos digestivos crónicos.
+Beneficios en el Protocolo:
+Evacuación y Ligereza: El protocolo garantiza un tránsito fluido, eliminando el estreñimiento y brindando una sensación de ligereza inmediata.
+Regeneración Digestiva: La regeneración de la flora intestinal mejora drásticamente la asimilación de nutrientes, previniendo la inflamación por colitis o gastritis.
+Bienestar Sistémico: La combinación elimina la carga tóxica del organismo y brinda un soporte vital a los órganos a través de la reducción del estrés inflamatorio.
+Protocolo de Uso (El Combo):
+Al despertar (En Ayunas): Iniciar con SHEYCK CLOROFILA (dos cucharadas en un vaso con agua) para purificar el hígado y oxigenar las células.
+30 minutos antes de cada comida: Consumir FIBER BALANCE para preparar el tracto digestivo y asegurar el efecto "barrido".
+Soporte y Mantenimiento: Incorporar BISXANTONE diariamente para asegurar el soporte antiinflamatorio sistémico y el mantenimiento de los órganos.
+Uso complementario: Integrar COLON LIGHT según las indicaciones específicas del producto para reforzar el equilibrio del microbioma y la calma intestinal durante el proceso de limpieza.
+
+
+Protocolo de Blindaje Cognitivo y Rendimiento Cerebral
+
+
+
+
+
+Descripción del Sistema: Este protocolo constituye el sistema de nutrición cerebral definitivo, diseñado para proteger la integridad estructural de las neuronas, activar la transmisión sináptica y garantizar un estado de alerta y concentración sin somnolencia. La sinergia entre los ácidos grasos esenciales, el complejo B y los precursores de longevidad celular crea un entorno neuroprotector y energéticamente eficiente para el protagonista.
+Sinergia de Acción (Causa y Efecto):
+Construcción y Lubricación: Mientras los ácidos grasos Omega 3 y EPA de Omega Plus construyen y lubrican la estructura física de las neuronas, protegiendo el sistema circulatorio y combatiendo la inflamación, JE SUIS LA VIE aporta superalimentos que nutren integralmente los órganos, incluido el cerebro.
+Activación y Energía: El complejo B, el ácido glutámico y los minerales de Memory Kids activan la chispa eléctrica necesaria para el aprendizaje, eliminando la fatiga mental y el mal humor al convertir los alimentos en energía útil para el cerebro.
+Protección Genética: El Astrágalo y la Vitamina C de JE SUIS LA VIE actúan como precursores de telomerasa y antioxidantes que protegen el ADN y el material genético de las neuronas contra el daño oxidativo.
+Beneficios en el Protocolo:
+Agilidad Mental: Mejora la coordinación motora (fina y gruesa) y la velocidad de procesamiento cognitivo sin generar somnolencia.
+Concentración Sostenida: Elimina la fatiga cerebral y estabiliza el ánimo, permitiendo una capacidad de enfoque prolongada para profesionales y estudiantes.
+Longevidad Neuronal: El conjunto de antioxidantes protege el cerebro del deterioro cognitivo y mejora la circulación sanguínea hacia este órgano vital.
+Protocolo de Uso (El Combo):
+Al iniciar el día: Consumir Omega Plus antes del primer bocado del desayuno para preparar las células, favorecer el control de la glucosa y proporcionar el combustible inicial necesario para las funciones cognitivas desde temprano.
+Durante el día: Administrar JE SUIS LA VIE en tres tomas para garantizar la nutrición constante de los órganos y el mantenimiento del escudo genético.
+Tras la comida principal: Consumir Memory Kids para asegurar que el hierro y las vitaminas se absorban al 100%, optimizando la síntesis de neurotransmisores y asegurando la máxima eficacia del protocolo.
+
+Protocolo Migraña y Estabilidad Neurológica 
+
+Descripción del Sistema: Este protocolo está diseñado para establecer un entorno interno de calma y máxima eficiencia neuroquímica. Al combinar la purificación sistémica de SHEYCK CLOROFILA y Fiber Balance con la protección genética y nutricional de JE SUIS LA VIE y Memory Kids, se atacan los focos inflamatorios y las deficiencias metabólicas que suelen disparar episodios de migraña, proporcionando un soporte integral para el sistema nervioso.
+Sinergia de Acción (Causa y Efecto):
+Limpieza Sistémica y Alcalinización: SHEYCK CLOROFILA purifica el hígado y oxigena las células, mientras que Fiber Balance realiza un "barrido" mecánico que elimina desechos estancados. Esta depuración combinada reduce la carga tóxica que puede comprometer la función neurológica.
+Soporte Neuroquímico: Memory Kids aporta el combustible necesario para el cerebro (ácido glutámico) y minerales clave (magnesio y zinc) que favorecen la relajación muscular y del sistema nervioso, mitigando la tensión que precede a los episodios de migraña.
+Protección Genética y Antioxidante: JE SUIS LA VIE introduce precursores de telomerasa y antioxidantes de alta densidad que protegen el ADN de las neuronas contra el daño oxidativo y la inflamación, proporcionando un respaldo sistémico esencial para el bienestar orgánico general.
+Beneficios en el Protocolo:
+Reducción de Inflamación: La combinación ayuda a reducir el estrés oxidativo celular, factor crítico en la prevención de la inflamación que afecta el tejido cerebral.
+Optimización del Metabolismo: Al mejorar la digestión y la eliminación de desechos, se evita la acumulación de toxinas que generan malestar sistémico.
+Estabilidad Emocional: El aporte de magnesio y vitaminas del complejo B ayuda a equilibrar el sistema nervioso y mejorar la respuesta ante el estrés y la fatiga mental.
+Protocolo de Uso (El Combo):
+Al despertar (En ayunas): Iniciar con Fiber Balance para limpiar el colon, seguido de SHEYCK CLOROFILA (dos cucharadas en agua) para oxigenar la sangre y purificar el hígado.
+Durante el día: Administrar JE SUIS LA VIE (3 veces al día) para nutrir los órganos y asegurar la protección continua del material genético.
+Tras la comida principal: Consumir Memory Kids para garantizar la absorción completa de hierro y vitaminas, asegurando la estabilidad del sistema nervioso y una función cognitiva óptima tras la ingesta.
+
+Protocolo Osteoporosis, Densidad Ósea y Regeneración Estructural
+
+
+
+
+
+Descripción del Sistema: Este protocolo fusiona la nutrición de alta densidad de SUPER LECHE y STAR BONE con el soporte genético y metabólico de JE SUIS LA VIE y MEMORY KIDS. Juntos, crean un sistema que no solo proporciona los pilares estructurales para el tejido óseo, sino que optimiza la asimilación de nutrientes y protege el material genético necesario para la regeneración tisular eficiente.
+Sinergia de Acción (Causa y Efecto):
+Soporte Estructural y Metabólico: SUPER LECHE y STAR BONE proveen los insumos directos para el mantenimiento óseo, mientras que los minerales y vitaminas presentes en MEMORY KIDS (como el magnesio y la vitamina D) facilitan la correcta fijación y metabolismo de los nutrientes en el organismo.
+Protección y Regeneración: JE SUIS LA VIE aporta precursores de telomerasa y antioxidantes que protegen el ADN y los cromosomas, creando un entorno celular saludable que permite que los tejidos óseos y articulares se reparen con mayor eficacia.
+Optimización de Absorción: La combinación de fibras prebióticas y extractos herbales asegura que la densidad nutricional de la SUPER LECHE y STAR BONE sea absorbida de forma integral por el tracto digestivo.
+Beneficios en el Protocolo:
+Fortalecimiento Óseo: Mejora la estructura ósea y previene el deterioro sistémico al combinar insumos de alta calidad con cofactores de absorción.
+Eficiencia Energética y Metabólica: La integración del complejo B y minerales de MEMORY KIDS combate la debilidad física, facilitando que el cuerpo convierta los nutrientes en energía y soporte para la estructura esquelética.
+Longevidad Celular: El escudo genético proporcionado por JE SUIS LA VIE asegura que la regeneración de tejidos sea constante y protegida contra el daño oxidativo.
+Protocolo de Uso (El Combo):
+Desayuno: Consumir SUPER LECHE y STAR BONE para iniciar el día con la carga estructural necesaria para los huesos.
+Tras la comida principal: Administrar MEMORY KIDS para garantizar que los minerales y vitaminas se absorban al 100%, optimizando la síntesis necesaria para la reparación ósea.
+Durante el día: Distribuir las tomas de JE SUIS LA VIE (3 veces al día) para mantener la protección del material genético y nutrir los órganos constantemente.
+
+PREVENCIÓN CANCER DE COLON
+
+
+
+
+
+Descripción del Sistema: Este protocolo constituye un sistema de defensa integral para el tracto digestivo, diseñado para reducir la inflamación, restaurar la integridad de la mucosa y purificar el entorno celular. Al fusionar la acción mecánica de las fibras con la desintoxicación celular y el poder antiinflamatorio de las xantonas, se establece un entorno biológico que previene la degradación celular y favorece la regeneración del microbioma intestinal.
+Sinergia de Acción (Causa y Efecto):
+Limpieza y Regulación: FIBER BALANCE realiza un barrido mecánico del tracto digestivo que elimina desechos estancados, mientras que SHEYCK CLOROFILA alcaliniza la sangre y purifica el hígado, oxigenando las células para promover una regeneración saludable.
+Modulación Antiinflamatoria: BISXANTONE y MANGOSTEEN aportan xantonas con propiedades antiinflamatorias extremas, fundamentales para proteger los tejidos internos y la mucosa intestinal de agresiones externas y procesos inflamatorios crónicos.
+Protección de la Mucosa: La combinación de lactobacilos en FIBER BALANCE regenera la flora intestinal, creando una barrera protectora que reduce la inflamación y permite una asimilación de nutrientes sin irritación.
+Beneficios en el Protocolo:
+Desintoxicación Intestinal: La sinergia elimina toxinas y metales pesados, protegiendo las células del tracto digestivo contra la oxidación y el daño estructural.
+Salud Digestiva Óptima: Previene el estreñimiento crónico y las condiciones inflamatorias, asegurando que el intestino mantenga su función de absorción eficiente.
+Resiliencia Sistémica: El soporte antioxidante de las xantonas fortalece la respuesta inmunitaria del cuerpo y apoya el mantenimiento saludable de todos los órganos internos.
+Protocolo de Uso (El Combo):
+Al despertar (En Ayunas): Iniciar con SHEYCK CLOROFILA (dos cucharadas en un vaso con agua) para activar la limpieza hepática y el equilibrio de pH.
+Antes de las comidas: Consumir FIBER BALANCE con agua para realizar la limpieza mecánica del colon y regular la digestión antes de recibir alimentos.
+Soporte diario: Incorporar BISXANTONE y MANGOSTEEN para mantener un nivel constante de xantonas protectoras y soporte antiinflamatorio en el organismo.
+Mantenimiento: La complementación de SHEYCK CLOROFILA durante el resto de la jornada asegura la oxigenación celular continua.
+
+
+Protocolo de Desarrollo Cognitivo Escolar
+
+
+
+
+
+Descripción del Sistema: Este protocolo crea un sistema de nutrición dual: mientras MEMORY KIDS activa las funciones cognitivas y la chispa eléctrica para el aprendizaje, RICA LECHE y POWER MILK actúan como la base estructural necesaria para el crecimiento físico y la reconstrucción celular. Esta combinación asegura que el estudiante mantenga tanto la agilidad mental necesaria para el desempeño académico como la integridad física requerida para el desarrollo en la etapa escolar.
+Sinergia de Acción (Causa y Efecto):
+Activación Cognitiva: El ácido glutámico y el complejo B presentes en MEMORY KIDS actúan como combustible para el cerebro, potenciando la memoria y la atención en las actividades diarias.
+Soporte Estructural: RICA LECHE y POWER MILK proporcionan los nutrientes base necesarios para la reconstrucción física y el mantenimiento de los tejidos durante la etapa de crecimiento.
+Eficiencia Energética: La combinación de la estimulación neuroquímica de MEMORY KIDS con el soporte nutricional de la leche permite que el cuerpo convierta eficientemente los alimentos en energía, combatiendo la debilidad y la somnolencia durante las horas de estudio.
+Beneficios en el Protocolo:
+Desempeño Académico: Mejora la capacidad de concentración, la agilidad mental y la coordinación motora, permitiendo un aprendizaje más eficaz.
+Desarrollo Físico: Asegura el aporte constante de nutrientes para el crecimiento y la vitalidad del sistema óseo y muscular.
+Salud Nerviosa: El magnesio y el zinc de MEMORY KIDS optimizan la relajación muscular y protegen el sistema nervioso, mejorando la respuesta del protagonista ante el cansancio escolar.
+Protocolo de Uso (El Combo):
+Desayuno: Incorporar RICA LECHE y POWER MILK para asegurar la base estructural y energética del día.
+Tras la comida principal: Administrar MEMORY KIDS para garantizar que los minerales, el hierro y las vitaminas se absorban al 100%, maximizando la síntesis de neurotransmisores y asegurando la estabilidad mental necesaria para las tareas de la tarde.
+
+
+Protocolo de Soporte y Protección Prostático 
+
+
+
+
+
+Descripción del Sistema: Este protocolo integra nutrientes de alta especialización para abordar la salud prostática mediante la regulación hormonal, la reducción de la inflamación sistémica y el soporte antioxidante profundo. La combinación de HECEN MANGOSTEEN, OMEGA PLUS y JE SUIS LA VIE crea un entorno de protección celular que favorece la desinflamación de los tejidos y la estabilidad del sistema urinario.
+Sinergia de Acción (Causa y Efecto):
+Regulación Hormonal y Desinflamación: HECEN MANGOSTEEN incorpora Saw Palmetto, un ingrediente clave para el equilibrio hormonal y la salud del sistema urinario, apoyando directamente la prevención de inflamaciones y crecimientos anómalos en la próstata.
+Protección Estructural y Circulatoria: OMEGA PLUS aporta ácidos grasos (Omega 3 y EPA) que actúan como potentes antiinflamatorios naturales, fundamentales para proteger el sistema circulatorio y reducir la inflamación sistémica que afecta la salud de órganos vitales.
+Defensa Celular Integral: JE SUIS LA VIE complementa el sistema con Licopeno, un carotenoide esencial para el mantenimiento saludable de órganos como la próstata y el corazón. Además, la sinergia antioxidante de estos productos neutraliza los radicales libres que aceleran el daño celular.
+Beneficios en el Protocolo:
+Salud Prostática: Favorece el equilibrio del sistema urinario y la reducción de procesos inflamatorios en tejidos prostáticos.
+Respuesta Antiinflamatoria: Reduce la inflamación sistémica, permitiendo una mejor respuesta inmunitaria.
+Protección Celular: El aporte constante de antioxidantes (Vitamina C, Selenio, Licopeno) protege las células contra mutaciones y daños degenerativos.
+Protocolo de Uso (El Combo):
+Desayuno: Consumir OMEGA PLUS con el primer bocado del día para preparar las células, optimizar la absorción de nutrientes y favorecer el control de glucosa.
+Durante el día: Administrar JE SUIS LA VIE en tres tomas diarias para asegurar la nutrición constante de los órganos y el soporte genético.
+Soporte Metabólico: Integrar HECEN MANGOSTEEN para fortalecer el sistema inmune y aprovechar las propiedades reguladoras hormonales del Saw Palmetto de manera sostenida durante la jornada.
+
+Protocolo PSORIASIS - Armonización Dérmica y Reducción Inflamatoria
+
+
+
+
+
+Descripción del Sistema: Este protocolo ha sido diseñado para abordar la psoriasis desde una perspectiva sistémica, combinando el soporte antiinflamatorio de alta potencia con la modulación inmunológica y la protección celular. La integración de estos productos permite reducir la inflamación crónica característica de la piel mientras se nutren las membranas celulares y se fortalece la respuesta defensiva del organismo.
+Sinergia de Acción (Causa y Efecto):
+Gestión de la Inflamación: Los ácidos grasos Omega 3 y el EPA presentes en OMEGA PLUS actúan como potentes antiinflamatorios naturales que ayudan a reducir la inflamación sistémica. Esta acción es potenciada por las xantonas presentes en MANGOSTEEN, las cuales poseen propiedades antiinflamatorias severas ideales para el manejo de condiciones que afectan los tejidos.
+Salud Celular y Protección: Mientras el OMEGA PLUS nutre y mantiene la piel desde una base lipídica esencial, el MANGOSTEEN aporta Vitamina E y Zinc, nutrientes fundamentales para la regeneración celular, la mejora de la elasticidad cutánea y la protección de las membranas celulares contra el daño oxidativo.
+Apoyo Inmunológico: El MANGOSTEEN refuerza el sistema inmunológico, permitiendo al cuerpo combatir procesos que afectan el bienestar de la piel, mientras los ácidos grasos aseguran un control metabólico eficiente.
+Beneficios en el Protocolo:
+Reducción de Inflamación Cutánea: El efecto combinado de los ácidos grasos y las xantonas ataca la raíz inflamatoria de la psoriasis.
+Regeneración de Tejidos: Los componentes de MANGOSTEEN favorecen la reparación celular y protegen contra el envejecimiento acelerado de la piel.
+Protección Sistémica: Se fortalece la salud cardiovascular y la respuesta defensiva del organismo ante procesos degenerativos.
+Protocolo de Uso (El Combo):
+Mañana (Con el desayuno): Consumir OMEGA PLUS junto con el primer bocado; esto prepara a las células, aporta combustible para el día y garantiza que los ácidos grasos se absorban con máxima eficiencia.
+Durante el día: Administrar MANGOSTEEN de forma sostenida para mantener los niveles de xantonas y antioxidantes en sangre, favoreciendo la desinflamación constante y la protección inmunológica.
+
+Protocolo de Drenaje Sistémico y Equilibrio Hídrico (Retencion de liquidos )
+
+Descripción del Sistema: Este protocolo actúa como un sistema de "regulación de fluidos". Combina la capacidad de las fibras de alta densidad para realizar un barrido mecánico, la acción desintoxicante de agentes naturales y el soporte antiinflamatorio para eliminar la retención de líquidos. Al optimizar la función digestiva, el cuerpo puede gestionar mejor los fluidos extracelulares, reduciendo la inflamación y la sensación de pesadez.
+Sinergia de Acción (Causa y Efecto):
+Gestión de Desechos y Fluidos: FIBER TABS (también referidas en el ecosistema como Fiber Balance) proveen fibras solubles que forman un gel regulador, ayudando a suavizar el tránsito y facilitando el movimiento de desechos que, al estancarse, contribuyen a la retención de líquidos.
+Optimización Digestiva: COLON LIGHT trabaja para regenerar la flora intestinal y calmar la inflamación del tracto digestivo, lo que mejora la absorción y reduce la irritación que suele causar distensión abdominal.
+Respuesta Antiinflamatoria: BISXANTONE aporta xantonas con propiedades antiinflamatorias extremas que ayudan a la reparación de los tejidos, complementando la limpieza digestiva para asegurar que el sistema linfático y circulatorio operen sin la carga de una inflamación crónica.
+Beneficios en el Protocolo:
+Eliminación de la Inflamación: Reduce el estrés oxidativo y la acumulación de fluidos en los tejidos.
+Ligereza Sistémica: El barrido mecánico y la limpieza del colon previenen la pesadez y el malestar digestivo.
+Eficiencia Metabólica: La regeneración del entorno intestinal mejora drásticamente la capacidad del organismo para procesar nutrientes y eliminar toxinas acumuladas.
+Protocolo de Uso (El Combo):
+30 minutos antes de los alimentos: Consumir FIBER TABS para preparar el tracto digestivo y asegurar el efecto de limpieza mecánica necesario para combatir la retención.
+Soporte de calma: Integrar COLON LIGHT según las especificaciones de dosificación para mantener el microbioma en equilibrio y prevenir la inflamación intestinal que causa distensión.
+Uso diario constante: Administrar BISXANTONE para mantener niveles óptimos de xantonas, asegurando que los tejidos internos tengan el soporte necesario para mantenerse desinflamados y sanos.
+
+
+
+Protocolo de Blindaje Inmunológico y Resiliencia Sistémica
+
+
+
+
+
+Descripción del Sistema: Este protocolo establece una arquitectura de defensa integral para el protagonista. Al fusionar la protección genética y el aporte de súper alimentos de JE SUIS LA VIE con la activación metabólica de MEMORY KIDS y la base estructural regenerativa de POWER MILK, se crea un sistema que no solo previene el desgaste inmunitario, sino que optimiza la capacidad del cuerpo para repararse y defenderse ante agentes externos.
+Sinergia de Acción (Causa y Efecto):
+Activación Inmune y Metabólica: La combinación de minerales, zinc y vitaminas de MEMORY KIDS potencia la respuesta inmunitaria del cuerpo, asegurando que las células defensivas cuenten con la energía necesaria para protegerse de virus y bacterias de manera eficiente.
+Protección Genética y Regenerativa: JE SUIS LA VIE introduce precursores de telomerasa y antioxidantes que protegen el ADN contra el daño oxidativo. Esta protección, al integrarse con POWER MILK, asegura que los tejidos se reconstruyan constantemente sobre una base celular libre de estrés oxidativo.
+Soporte Nutricional Integral: Mientras los componentes de POWER MILK aseguran la estructura y el mantenimiento de los tejidos, los súper alimentos de JE SUIS LA VIE nutren profundamente a todos los órganos, garantizando que el sistema inmune nunca carezca de los insumos necesarios para su función crítica.
+Beneficios en el Protocolo:
+Blindaje Inmunológico: Eleva las defensas naturales del cuerpo, mejorando la respuesta contra amenazas externas.
+Eficiencia de Recuperación: Acelera la reparación tisular y reduce el tiempo de recuperación ante episodios de fatiga o desgaste.
+Vitalidad Sistémica: Combate el envejecimiento celular y optimiza el metabolismo energético, permitiendo que el protagonista mantenga un alto nivel de rendimiento físico y mental.
+Protocolo de Uso (El Combo):
+Desayuno: Incorporar POWER MILK para establecer la base estructural y la carga energética diaria.
+Tras la comida principal: Administrar MEMORY KIDS para garantizar una absorción al 100% de sus minerales y vitaminas, optimizando la síntesis de defensas y la respuesta inmunológica.
+Durante el día: Distribuir las tomas de JE SUIS LA VIE (3 veces al día) para mantener el escudo genético activo y nutrir los órganos constantemente, cerrando el ciclo de protección sistémica.
+
+Protocolo Sobrepeso
+
+
+
+
+
+Descripción del Sistema: Este protocolo constituye una arquitectura de gestión de peso altamente eficiente, diseñada para reconfigurar el metabolismo desde tres ejes fundamentales: la depuración mecánica y química, la activación de la termogénesis para la movilización de grasas y el soporte estructural para preservar el tejido magro. Al integrar agentes que limpian el entorno digestivo con compuestos que aceleran el gasto energético y protegen la integridad muscular, el protagonista logra una pérdida de grasa efectiva y una optimización constante de sus procesos metabólicos.
+Sinergia de Acción (Causa y Efecto):
+Depuración y Alcalinización: COLON LIGHT actúa para regenerar la flora intestinal y calmar la inflamación del tracto digestivo, creando el entorno limpio necesario para que los nutrientes se absorban con máxima eficiencia.
+Movilización de Reservas Energéticas: SHAPE MAKER COFFEE y CONTROL FAST orquestan la activación termogénica y el control del metabolismo lipídico, convirtiendo las reservas de grasa en la fuente de energía primaria para las actividades del protagonista durante el día.
+Gestión del Estrés Inflamatorio: BISXANTONE, rico en xantonas, ejerce una acción antiinflamatoria extrema, fundamental para reparar los tejidos internos y combatir la inflamación crónica que frecuentemente acompaña a los estados de sobrepeso.
+Soporte Estructural Magro: POWER MILK proporciona los insumos necesarios para la reconstrucción física y el mantenimiento del tejido muscular, asegurando que, mientras se elimina la masa adiposa, el protagonista mantenga su estructura y fuerza.
+Beneficios en el Protocolo:
+Eficiencia Metabólica: Se maximiza la capacidad del cuerpo para procesar nutrientes, evitando el estancamiento y la acumulación de toxinas.
+Reducción de la Carga Adiposa: El protocolo prioriza la quema de grasas como combustible principal, facilitando una reducción saludable de las medidas corporales.
+Preservación de la Masa Magra: La ingesta equilibrada asegura que la transformación física sea una pérdida real de grasa y no un deterioro de la estructura muscular.
+Protocolo de Uso (El Combo):
+Al despertar: Iniciar con COLON LIGHT para preparar el sistema digestivo y asegurar la limpieza intestinal necesaria para el día.
+Pre-actividad (Mañana/Tarde): Consumir SHAPE MAKER COFFEE para activar la termogénesis y elevar el gasto energético previo a las actividades físicas o mentales exigentes.
+Junto con los alimentos: Incorporar CONTROL FAST para gestionar el metabolismo durante las ingestas principales y asegurar que los nutrientes se transformen en energía útil.
+Soporte de Recuperación: Consumir POWER MILK para proveer los nutrientes estructurales necesarios para la reconstrucción tisular y el mantenimiento de la fuerza.
+Mantenimiento Sistémico: Administrar BISXANTONE diariamente para sostener la desinflamación profunda y el soporte antioxidante necesario en órganos internos, permitiendo la longevidad del sistema.
+
+
+
+Protocolo de Hipertrofia Sistémica y Optimización de la Síntesis Proteica
+
+
+
+
+
+Descripción del Sistema: Este protocolo representa un sistema de construcción física integral, diseñado para maximizar la síntesis proteica, potenciar la recuperación muscular y asegurar que la ganancia de masa sea cualitativa, evitando la acumulación de tejido adiposo innecesario. Al fusionar la nutrición estructural de alta densidad, la activación neuroquímica para el rendimiento físico y la protección antiinflamatoria profunda, el protagonista crea un entorno fisiológico donde el anabolismo es la respuesta natural a la demanda del entrenamiento.
+Sinergia de Acción (Causa y Efecto):
+Fundamento Estructural y Reconstrucción: POWER MILK y SUPER LECHE proveen los sustratos críticos y la densidad nutricional necesaria para la reconstrucción tisular y el mantenimiento estructural del músculo esquelético, sirviendo como la base física del protocolo.
+Activación Sináptica y Respuesta Motora: MEMORY KIDS actúa como el catalizador neuroquímico; al suministrar ácido glutámico, zinc, magnesio y complejo B, permite que el protagonista optimice la coordinación motora durante el esfuerzo físico y mejore la transmisión de señales nerviosas, evitando la fatiga muscular prematura.
+Gestión del Estrés Oxidativo e Inflamatorio: BISXANTONE aporta xantonas con propiedades antiinflamatorias extremas, las cuales son fundamentales para reparar los microdesgarros musculares provocados por el entrenamiento intenso, permitiendo una recuperación acelerada y constante.
+Optimización Metabólica sin Exceso Calórico: SWEET FREE facilita el mantenimiento de una composición corporal limpia al proporcionar una alternativa dulce sin añadir calorías vacías que interfieran con la definición muscular durante la etapa de volumen.
+Beneficios en el Protocolo:
+Ganancia de Masa Magra: La combinación estratégica optimiza la absorción de nutrientes, asegurando que el cuerpo disponga de los bloques de construcción necesarios para la hipertrofia.
+Resiliencia Física y Recuperación Acelerada: El soporte antiinflamatorio de BISXANTONE disminuye drásticamente el tiempo de inactividad por dolor muscular, permitiendo una mayor frecuencia y calidad de entrenamiento.
+Performance Cognitivo y Motriz: El aporte de minerales y vitaminas de MEMORY KIDS garantiza que la fuerza generada sea eficiente, mejorando la conexión mente-músculo para un rendimiento superior en cada serie.
+Pureza Metabólica: El uso de SWEET FREE garantiza que el protocolo sea metabólicamente limpio, permitiendo el crecimiento muscular sin sacrificar la salud metabólica.
+Protocolo de Uso (El Combo):
+Inicio del día (Desayuno): Consumir SUPER LECHE y POWER MILK para establecer una base estructural de aminoácidos y nutrientes esenciales desde la primera hora, proporcionando la carga necesaria para la síntesis proteica diurna.
+Post-Entrenamiento: Administrar MEMORY KIDS inmediatamente después de la actividad física para garantizar la máxima absorción del hierro y las vitaminas, optimizando la recuperación del sistema nervioso y la síntesis de neurotransmisores esenciales para la fuerza.
+Soporte Antiinflamatorio Continuo: Incorporar BISXANTONE a lo largo del día para mantener el control inflamatorio y proteger los tejidos de los radicales libres producidos por el ejercicio de alta intensidad.
+Ajuste de Palatabilidad: Utilizar SWEET FREE en cualquier toma del protocolo cuando se requiera mejorar la adherencia nutricional sin comprometer los objetivos metabólicos, asegurando el cumplimiento a largo plazo del sistema de nutrición.
+
+Protocolo restauración mucosa y ulceras gastricas.
+
+Descripción del Sistema: Este protocolo ha sido diseñado como un sistema integral de "Escudo y Regeneración" para el tracto digestivo, enfocado en reducir la inflamación severa y facilitar la cicatrización natural de las lesiones gástricas. Al combinar la acción alcalinizante de la clorofila, el efecto protector de las fibras prebióticas y el poder antiinflamatorio extremo de las xantonas, el sistema I'AM establece un entorno de paz digestiva, permitiendo que el cuerpo enfoque su energía en la reparación de los tejidos dañados.
+Sinergia de Acción (Causa y Efecto):
+Preparación y Purificación: SHEYCK CLOROFILA actúa como el agente purificador inicial; al limpiar el hígado y alcalinizar la sangre, reduce la carga tóxica del organismo y prepara un ambiente interno menos irritante para el sistema digestivo.
+Regeneración y Protección: BISXANTONE aporta xantonas con propiedades antiinflamatorias extremas, las cuales son fundamentales para atacar el origen de la inflamación en los tejidos internos, brindando un soporte esencial para calmar y proteger la mucosa gástrica.
+Mantenimiento y Estabilidad: FIBER TABS (Fiber Balance) complementa este sistema mediante el aporte de fibras que, además de su función de barrido, contribuyen a la regeneración de la flora intestinal, creando una capa protectora que reduce la irritación estomacal y facilita una absorción de nutrientes sin causar pesadez ni molestias.
+Beneficios en el Protocolo:
+Alivio y Cicatrización: El uso de menta y yerbabuena presentes en la clorofila, en combinación con la acción regeneradora de las xantonas, promueve activamente la cicatrización y el alivio de las molestias estomacales.
+Optimización Digestiva: La regeneración de la flora intestinal mediante este sistema disminuye drásticamente la inflamación asociada a gastritis o procesos erosivos del tracto digestivo.
+Protección Sistémica: La reducción del estrés inflamatorio sistémico permite que el protagonista recupere su bienestar general y mejore la resiliencia de sus órganos internos frente a futuros agentes irritantes.
+Protocolo de Uso (El Combo):
+Despertar (Ayunas): Iniciar con SHEYCK CLOROFILA (dos cucharadas en un vaso con agua) para alcalinizar la sangre inmediatamente y preparar el estómago, facilitando una limpieza hepática que reduce el estrés metabólico durante el día.
+Antes de cada comida principal (20 minutos antes): Consumir FIBER TABS (Fiber Balance) para crear una barrera de protección mecánica en el tracto digestivo, lo que asegura una absorción suave de los alimentos y minimiza la irritación de las paredes estomacales.
+Soporte Antiinflamatorio Diario: Administrar BISXANTONE de forma constante para asegurar niveles terapéuticos de xantonas que protejan la mucosa y permitan una regeneración tisular continua durante las horas de actividad.
+
+
+
+Protocolo de Circulación y Cicatrización Gástrica
+
+Descripción del Sistema: Este protocolo representa un sistema integral de "Limpieza, Protección y Reparación", diseñado específicamente para abordar la cronicidad de las úlceras varicosas desde su origen metabólico y circulatorio. Al integrar la desintoxicación sistémica profunda con la protección del material genético y un soporte antiinflamatorio de alta intensidad, el sistema I'AM crea las condiciones biológicas necesarias para mejorar la calidad del sistema circulatorio, reducir la presión sobre las venas y acelerar la regeneración de los tejidos dañados.
+Sinergia de Acción (Causa y Efecto):
+Purificación y Mejora de la Circulación: COLON LIGHT y FIBER BALANCE operan en sinergia para eliminar toxinas y desechos metabólicos acumulados que comprometen la salud vascular, al mismo tiempo que la fibra prebiótica mejora el tránsito, aliviando la sobrecarga sobre el sistema circulatorio periférico.
+Protección Genética y Antioxidante: JE SUIS LA VIE aporta precursores de telomerasa y antioxidantes de alta densidad que protegen el ADN de las células endoteliales vasculares contra el daño oxidativo, un factor clave en la prevención del deterioro tisular.
+Respuesta Antiinflamatoria Extrema: MANGOSTEEN provee xantonas de alta capacidad antioxidante que actúan directamente contra la inflamación severa en las úlceras, mientras que el extracto de uva (resveratrol) mejora la salud y elasticidad de las arterias, complementando la acción purificadora de los otros componentes para restaurar la circulación saludable.
+Beneficios en el Protocolo:
+Reducción de la Inflamación Vascular: La acción combinada de las xantonas y los antioxidantes reduce significativamente la inflamación local y sistémica, permitiendo que la úlcera encuentre un entorno propicio para la cicatrización.
+Mejora de la Integridad Vascular: El soporte nutricional para las arterias y la eliminación de metales pesados o toxinas (facilitada por la purificación hepática) reducen la presión sobre el sistema circulatorio, disminuyendo el riesgo de complicaciones.
+Cicatrización Acelerada: La protección del material genético y la nutrición densa de los órganos aseguran que el organismo posea la capacidad reparadora necesaria para regenerar los tejidos afectados de manera constante.
+Protocolo de Uso (El Combo):
+Al despertar (En ayunas): Iniciar con COLON LIGHT según las indicaciones del producto para asegurar la limpieza del tracto digestivo y preparar el entorno interno, seguido inmediatamente por FIBER BALANCE para realizar el barrido mecánico y mejorar la absorción de nutrientes posteriores.
+Durante el día (Distribución estratégica): Administrar JE SUIS LA VIE en tres tomas diarias para mantener un escudo genético constante y nutrir los órganos vitales, lo cual es fundamental para el soporte del metabolismo celular necesario en la regeneración de tejidos.
+Soporte Antiinflamatorio Continuo: Integrar MANGOSTEEN a lo largo de la jornada para mantener niveles terapéuticos de xantonas, asegurando una lucha constante contra la inflamación de la zona afectada y protegiendo el sistema cardiovascular contra el daño oxidativo.
+
+Protocolo Estética Estructural, Uñas y Canas
+
+
+
+
+
+Descripción del Sistema: Este protocolo ha sido diseñado como un sistema integral de regeneración y fortalecimiento, enfocado en restaurar la vitalidad desde el interior hacia el exterior. Al combinar la purificación metabólica con la protección genética y el aporte estructural de alta densidad, este sistema combate los signos visibles del envejecimiento en uñas y cabello (canas), creando un entorno biológico que favorece la salud dérmica y la integridad de los tejidos queratinizados.
+Sinergia de Acción (Causa y Efecto):
+Limpieza y Absorción: COLON LIGHT prepara el terreno eliminando desechos y optimizando el entorno digestivo, asegurando que el cuerpo esté en condiciones óptimas para absorber los nutrientes densos necesarios para la formación de cabello y uñas saludables.
+Protección del Código Genético: JE SUIS LA VIE introduce precursores de telomerasa y antioxidantes que protegen el ADN de las células capilares contra el daño oxidativo y el envejecimiento acelerado, lo cual es fundamental para contrarrestar la pérdida de pigmentación (canas) y mejorar la vitalidad del cabello.
+Fortalecimiento Estructural: STAR BONE aporta los insumos necesarios para fortalecer la estructura física, mientras que los nutrientes presentes en JE SUIS LA VIE complementan este soporte asegurando que las uñas y los folículos capilares reciban los "súper alimentos" esenciales para un mantenimiento diario efectivo.
+Beneficios en el Protocolo:
+Vitalidad Capilar: La protección contra el daño oxidativo ayuda a frenar el deterioro capilar y a mantener el cabello más fuerte y saludable.
+Fortaleza en Uñas: El soporte estructural de los minerales y nutrientes asegura que las uñas recuperen su dureza y resistencia frente a fragilidades o quiebres.
+Bienestar Sistémico: La desintoxicación constante combinada con la protección de los cromosomas mejora la salud de los órganos y el funcionamiento metabólico eficiente, reflejándose en una apariencia renovada.
+Protocolo de Uso (El Combo):
+Inicio del día (Despertar): Iniciar con COLON LIGHT siguiendo las indicaciones del producto para asegurar una limpieza que facilite la absorción de los nutrientes posteriores.
+Durante el día: Administrar JE SUIS LA VIE en tres tomas diarias para nutrir constantemente los órganos y mantener activo el "Escudo Genético Total" que protege el material genético responsable de la vitalidad capilar.
+Soporte Estructural: Incluir STAR BONE en la rutina para proveer la base estructural necesaria para el fortalecimiento de uñas y cabello, asegurando que el cuerpo disponga de los componentes para reparar y mantener estas estructuras diariamente.
+
+
+Protocolo de Circulación y Fortaleza Venosa (ULCERAS VARICOSAS)
+
+
+
+
+
+Descripción del Sistema: Este protocolo actúa como un sistema de "protección y fluidez". Al combinar la potencia antiinflamatoria de las xantonas y ácidos grasos esenciales con la estimulación circulatoria y la energía de rápida absorción, se crea un entorno que reduce la presión sobre el sistema venoso, protege la estructura de las arterias y favorece el retorno venoso eficiente.
+Sinergia de Acción (Causa y Efecto):
+Gestión de la Inflamación y Estructura: BISXANTONE aporta xantonas con propiedades antiinflamatorias extremas, las cuales ayudan a reparar tejidos inflamados, mientras que OMEGA PLUS utiliza sus ácidos grasos (Omega 3 y EPA) para reducir la inflamación cardiovascular y proteger el sistema circulatorio, mejorando la salud arterial.
+Optimización del Flujo y Energía: CARDIO SLIM y ENERGY GEL se integran para dinamizar la circulación y prevenir la formación de coágulos, asegurando que el cuerpo mantenga un flujo sanguíneo constante sin el estrés oxidativo que debilita las paredes venosas.
+Protección y Elasticidad: La combinación de antioxidantes presentes en BISXANTONE y el soporte de los ácidos grasos de OMEGA PLUS mejora la elasticidad de los vasos sanguíneos y previene la arteriosclerosis, reduciendo la carga sobre las venas varicosas.
+Beneficios en el Protocolo:
+Reducción de Inflamación: Disminuye la inflamación severa en las paredes venosas y tejidos circundantes.
+Circulación Eficiente: Mejora la salud de las arterias y venas, facilitando la circulación sanguínea.
+Resiliencia Cardiovascular: Protege al sistema circulatorio contra la formación de coágulos y el daño oxidativo celular.
+Protocolo de Uso (El Combo):
+Al despertar (Desayuno): Iniciar con OMEGA PLUS junto con el primer bocado para preparar las células, optimizar el control de glucosa y proteger la salud cardiovascular desde el inicio del día.
+Durante el día: Administrar BISXANTONE para mantener niveles constantes de xantonas protectoras y soporte antiinflamatorio en el sistema.
+Apoyo Circulatorio: Integrar CARDIO SLIM y ENERGY GEL según las necesidades de actividad del protagonista para asegurar la dinamización del flujo sanguíneo y prevenir la fatiga venosa durante la jornada.
+
+
+Protocolo de Desinflamación y Ligereza Abdominal
+
+
+
+
+
+Descripción del Sistema: Este protocolo ha sido diseñado como un sistema integral de limpieza, purificación y gestión metabólica enfocado en reducir la distensión abdominal y restaurar el equilibrio digestivo. Al fusionar la capacidad mecánica de las fibras con agentes que oxigenan el torrente sanguíneo, regeneran la flora intestinal y regulan el metabolismo, el sistema I'AM permite que el cuerpo elimine los desechos acumulados y controle la inflamación que causa el vientre inflamado, proporcionando una sensación de ligereza sistémica.
+Sinergia de Acción (Causa y Efecto):
+Limpieza y Oxigenación: SHEYCK CLOROFILA actúa como el purificador inicial; al limpiar el hígado y alcalinizar la sangre, crea el entorno ideal para que las células se oxigenen. Esta purificación permite que otros nutrientes se absorban con mayor eficiencia, facilitando la desinflamación desde el nivel más profundo.
+Regulación Digestiva y Barrido: FIBER BALANCE y COLON LIGHT trabajan en conjunto para realizar un barrido mecánico del tracto digestivo, eliminando desechos estancados. Simultáneamente, ayudan a regenerar la flora intestinal y calmar la inflamación, eliminando la causa raíz de la distensión.
+Gestión Metabólica y Energía: CONTROL FAST ayuda a gestionar el metabolismo durante las comidas, asegurando que los nutrientes se transformen en energía útil en lugar de estancarse. Mientras tanto, ENERGY GEL proporciona el combustible necesario para mantener la vitalidad sin sobrecargar el sistema, permitiendo que el protagonista mantenga un alto rendimiento sin la sensación de pesadez abdominal.
+Beneficios en el Protocolo:
+Reducción de la Distensión: El barrido mecánico de las fibras elimina la acumulación de desechos que genera el vientre inflamado.
+Entorno Digestivo Saludable: La regeneración de la flora intestinal reduce significativamente la inflamación crónica del tracto digestivo.
+Optimización Metabólica: La combinación mejora la capacidad del cuerpo para procesar alimentos, transformándolos en energía y evitando la acumulación de toxinas.
+Bienestar Sistémico: La oxigenación celular y la limpieza hepática promueven la longevidad y una respuesta inmune más fuerte.
+Protocolo de Uso (El Combo):
+Al despertar (En ayunas): Consumir SHEYCK CLOROFILA (dos cucharadas en un vaso con agua) para activar la limpieza hepática y el equilibrio del pH interno desde el inicio del día.
+Antes de las comidas principales: Administrar FIBER BALANCE con agua para generar el efecto de barrido mecánico que libera el tracto digestivo antes de la ingesta.
+Durante las comidas: Incorporar CONTROL FAST para gestionar eficientemente el metabolismo de los alimentos y asegurar la correcta absorción nutricional.
+Soporte diario: Administrar COLON LIGHT según las dosis indicadas para sostener la regeneración del microbioma y mantener la calma digestiva.
+Picos de Actividad: Utilizar ENERGY GEL durante el día para mantener la vitalidad necesaria, garantizando que el metabolismo se mantenga activo sin estancar el sistema digestivo.
+
+
+Protocolo de Agudeza Visual y Protección Ocular
+
+
+
+
+
+Descripción del Sistema: Este sistema constituye una arquitectura de defensa y regeneración diseñada para optimizar la salud ocular y frenar el deterioro visual. Al integrar nutrientes de alta especialización, el protocolo aborda la salud desde múltiples ángulos: la protección contra el daño oxidativo, la nutrición profunda de los tejidos oculares y la optimización de las funciones cognitivas asociadas a la percepción visual. La combinación de estos productos crea un escudo biológico que protege contra procesos degenerativos y potencia la claridad de visión.
+Sinergia de Acción (Causa y Efecto):
+Blindaje Antioxidante y Prevención: El MANGOSTEEN proporciona betacaroteno, precursor esencial de la Vitamina A, fundamental para la prevención de cataratas y la protección integral de la piel y mucosas. Además, su contenido de extracto de arándanos es clave para proteger la vista contra el deterioro cognitivo relacionado con la edad.
+Nutrición de Membranas y Función Cognitiva: OMEGA PLUS aporta ácidos grasos Omega 3, fundamentales para la función cerebral, los cuales trabajan en sinergia con la protección vascular del MANGOSTEEN, cuyas xantonas y resveratrol (en el extracto de uva) mejoran la circulación y salud de las arterias.
+Respuesta Cognitiva y Estructural: MEMORY KIDS complementa este sistema aportando minerales y vitaminas que optimizan la síntesis de neurotransmisores y la coordinación motora, factores esenciales para que la información visual sea procesada y respondida con agilidad por el sistema nervioso central.
+Beneficios en el Protocolo:
+Protección contra el Deterioro: El protocolo ayuda a frenar el deterioro de la vista mediante la neutralización de radicales libres que aceleran el envejecimiento celular.
+Salud Vascular Ocular: Mejora la circulación y la salud de las arterias que irrigan el área ocular gracias a los potentes antioxidantes y al soporte del sistema circulatorio.
+Claridad y Enfoque: El aporte de nutrientes específicos para el cerebro y las membranas celulares asegura que el "Protagonista" mantenga una agudeza visual superior y una capacidad de procesamiento cognitivo óptima.
+Protocolo de Uso (El Combo):
+Desayuno: Iniciar con OMEGA PLUS junto con el primer bocado del día para preparar las células y proporcionar el "combustible" necesario para las funciones cognitivas y la protección cardiovascular desde temprano.
+Durante el día: Administrar MANGOSTEEN de forma sostenida para mantener niveles constantes de xantonas, Vitamina C, selenio y betacaroteno, asegurando la protección continua de los tejidos oculares contra el daño oxidativo.
+Soporte de absorción: Incorporar MEMORY KIDS tras la comida principal para asegurar una absorción eficiente de sus minerales y vitaminas, maximizando la síntesis de neurotransmisores necesarios para una respuesta visual y cognitiva de alto rendimiento.

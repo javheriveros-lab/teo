@@ -1,0 +1,18 @@
+# Variables de entorno
+.env
+
+# Entornos virtuales
+venv/
+.venv/
+env/
+
+# Python bytecode y caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# IDEs y editores
+.vscode/
+.idea/
+*.swp

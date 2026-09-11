@@ -38,7 +38,7 @@ async def receive_message(request: Request):
                         "content": user_text,
                     }
                 ],
-                model="llama-3.3-70b-versatile",
+                model="llama3-8b-8192",
             )
             bot_reply = chat_completion.choices[0].message.content
             print(f"Respuesta generada por Groq: {bot_reply}")

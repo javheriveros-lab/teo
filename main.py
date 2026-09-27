@@ -28,7 +28,7 @@ for _name, _value in {
         logger.warning("Variable de entorno '%s' no está configurada.", _name)
 
 # Requisito de negocio: el modelo queda fijo, no se expone como configurable.
-GROQ_MODEL = "llama-3.1-8b-instant"
+GROQ_MODEL = "openai/gpt-oss-20b"
 WHATSAPP_API_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PHONE_NUMBER_ID}/messages"
 WHATSAPP_MAX_MESSAGE_LENGTH = 4096
 

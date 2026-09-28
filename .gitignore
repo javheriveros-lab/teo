@@ -1,6 +1,9 @@
 # Variables de entorno
 .env
 
+# Base de datos local de TEO (datos de clientes, nunca a git)
+teo.db
+
 # Entornos virtuales
 venv/
 .venv/

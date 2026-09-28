@@ -1,8 +1,11 @@
+import os
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent / "teo.db"
+# En producción (Railway), DB_DIR apunta a un volumen persistente para que teo.db sobreviva
+# redeploys y reinicios del contenedor. En local, sin esa variable, usa la carpeta del proyecto.
+DB_PATH = Path(os.environ.get("DB_DIR", Path(__file__).parent)) / "teo.db"
 
 REMINDER_KINDS = (
     "checkin_matutino",

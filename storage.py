@@ -179,6 +179,20 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS clinical_escalations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                phone TEXT NOT NULL,
+                case_summary TEXT NOT NULL,
+                questions TEXT NOT NULL,
+                alma_response TEXT,
+                status TEXT NOT NULL DEFAULT 'pendiente' CHECK (status IN ('pendiente', 'respondido')),
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                answered_at TEXT
+            )
+            """
+        )
 
 
 def upsert_customer(
@@ -609,6 +623,35 @@ def confirm_enrollment(phone: str, tiempo_reflejo: str) -> dict:
             (tiempo_reflejo, row["id"]),
         )
         updated = conn.execute("SELECT * FROM enrollments WHERE id = ?", (row["id"],)).fetchone()
+        return dict(updated)
+
+
+def create_clinical_escalation(phone: str, case_summary: str, questions: str) -> int:
+    with _connection() as conn:
+        cursor = conn.execute(
+            "INSERT INTO clinical_escalations (phone, case_summary, questions) VALUES (?, ?, ?)",
+            (phone, case_summary, questions),
+        )
+        return cursor.lastrowid
+
+
+def answer_clinical_escalation(phone: str, alma_response: str) -> dict:
+    """Alma responde un caso clínico escalado (buscado por los últimos 10 dígitos, igual que
+    `confirm_enrollment`, ya que el humano puede teclear el número con o sin prefijo). Solo
+    aplica al caso pendiente más reciente de ese teléfono."""
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM clinical_escalations WHERE phone = ? AND status = 'pendiente' ORDER BY id DESC LIMIT 1",
+            (phone,),
+        ).fetchone()
+        if not row:
+            return None
+        conn.execute(
+            "UPDATE clinical_escalations SET status = 'respondido', alma_response = ?, "
+            "answered_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (alma_response, row["id"]),
+        )
+        updated = conn.execute("SELECT * FROM clinical_escalations WHERE id = ?", (row["id"],)).fetchone()
         return dict(updated)
 
 

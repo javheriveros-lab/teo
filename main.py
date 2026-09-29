@@ -11,7 +11,7 @@ from datetime import datetime
 import httpx
 from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.responses import PlainTextResponse
-from groq import AsyncGroq, BadRequestError, RateLimitError
+from openai import AsyncOpenAI, BadRequestError, RateLimitError
 
 import plans
 import shipping
@@ -25,14 +25,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(
 logger = logging.getLogger("teo")
 
 # --- Configuración de entorno ---
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 WHATSAPP_TOKEN = os.environ.get("WHATSAPP_TOKEN")
 PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID")
 WEBHOOK_VERIFY_TOKEN = os.environ.get("WEBHOOK_VERIFY_TOKEN")
 GRAPH_API_VERSION = os.environ.get("META_GRAPH_API_VERSION", "v21.0")
 
 for _name, _value in {
-    "GROQ_API_KEY": GROQ_API_KEY,
+    "OPENROUTER_API_KEY": OPENROUTER_API_KEY,
     "WHATSAPP_TOKEN": WHATSAPP_TOKEN,
     "PHONE_NUMBER_ID": PHONE_NUMBER_ID,
     "WEBHOOK_VERIFY_TOKEN": WEBHOOK_VERIFY_TOKEN,
@@ -40,9 +40,10 @@ for _name, _value in {
     if not _value:
         logger.warning("Variable de entorno '%s' no está configurada.", _name)
 
-# Requisito de negocio: el modelo queda fijo, no se expone como configurable.
-# Nota: llama-3.1-8b-instant fue retirado del catálogo de Groq (404 model_not_found).
-GROQ_MODEL = "openai/gpt-oss-20b"
+# Motor de IA: OpenRouter (compatible con la API de OpenAI) con modelo principal + respaldo
+# automático si el principal falla, se satura o se queda sin tokens.
+PRIMARY_MODEL = "openai/gpt-4o"
+FALLBACK_MODEL = "anthropic/claude-sonnet-4.5"
 WHATSAPP_API_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PHONE_NUMBER_ID}/messages"
 WHATSAPP_MEDIA_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PHONE_NUMBER_ID}/media"
 WHATSAPP_MAX_MESSAGE_LENGTH = 4096
@@ -87,7 +88,27 @@ STAFF_PHONE_NUMBERS = {
 }
 
 
-groq_client = AsyncGroq(api_key=GROQ_API_KEY)
+llm_client = AsyncOpenAI(
+    api_key=OPENROUTER_API_KEY,
+    base_url="https://openrouter.ai/api/v1",
+    default_headers={"HTTP-Referer": "https://teo-production-6765.up.railway.app", "X-Title": "TEO - I'AM"},
+)
+
+
+async def _create_chat_completion(**kwargs):
+    """Llama al modelo principal; si falla por cualquier motivo que no sea una petición mal
+    formada (BadRequestError — eso lo maneja el llamador, ej. reintentando sin tools), reintenta
+    automáticamente con el modelo de respaldo antes de propagar el error."""
+    try:
+        return await llm_client.chat.completions.create(model=PRIMARY_MODEL, **kwargs)
+    except BadRequestError:
+        raise
+    except Exception as primary_error:
+        logger.warning(
+            "Modelo principal (%s) falló (%s); reintentando con respaldo (%s).",
+            PRIMARY_MODEL, primary_error, FALLBACK_MODEL,
+        )
+        return await llm_client.chat.completions.create(model=FALLBACK_MODEL, **kwargs)
 
 SYSTEM_PROMPT = """Eres TEO, Coach de Optimización Biológica y Mentor de Negocios de la marca I'AM. Hablas \
 por WhatsApp con clientes reales con la seguridad de un especialista de alto nivel que domina salud celular, \
@@ -151,6 +172,16 @@ ESCALAMIENTO A UN ASESOR HUMANO: si detectas una queja formal sobre un producto,
 hablar con "una persona real"/"un humano"/"un asesor", usa la función `escalar_a_humano` con el motivo y un \
 resumen breve de la situación, y transmite al cliente el mensaje que te devuelva la función. No intentes \
 resolver tú estos casos con más recomendaciones de producto.
+
+ESCALAMIENTO DE CASOS CLÍNICOS COMPLEJOS (Alma): si el cliente menciona una enfermedad grave (cáncer, \
+condiciones crónicas serias) o cualquier caso de salud que no esté claramente cubierto por el catálogo de \
+abajo, NUNCA inventes tú un protocolo ni improvises una recomendación clínica, pero tampoco te pongas frío, \
+evasivo ni te asustes — acompaña a la persona con calidez genuina, valida lo que está viviendo, y usa la \
+función `escalar_caso_clinico_alma` con un resumen del caso y preguntas concretas para que nuestra experta \
+(Alma) lo revise. Transmite al cliente, con tu propio tono cálido, el mensaje que te devuelva la función. En \
+cuanto recibas la respuesta técnica de Alma (te llegará como parte de la conversación), transmítesela al \
+cliente aplicando EXACTAMENTE su directriz — nunca la cambies, resumas de más, ni le agregues información \
+médica que ella no haya dado.
 
 FLUJO DE CONVERSACIÓN (revisa el historial antes de preguntar; nunca repitas una pregunta ya respondida):
 1. Si todavía no sabes el nombre real del cliente, es lo primero que preguntas, incluso antes de la edad, con \
@@ -703,6 +734,40 @@ ESCALATION_TOOL = {
     },
 }
 
+CLINICAL_ESCALATION_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "escalar_caso_clinico_alma",
+        "description": (
+            "Úsala cuando detectes un caso de salud complejo o delicado (enfermedad grave como cáncer, o "
+            "una condición clínica que no esté clara en el catálogo) y quieras que una experta humana de "
+            "I'AM (Alma) lo revise y dé una directriz técnica personalizada. NUNCA inventes tú el "
+            "protocolo clínico para estos casos — esta función consulta a un humano real y te devuelve un "
+            "mensaje para que se lo transmitas al cliente con calidez, sin sonar evasivo ni frío."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "resumen_caso": {
+                    "type": "string",
+                    "description": (
+                        "Resumen claro y completo del caso: edad, condición/enfermedad, síntomas, y "
+                        "cualquier contexto relevante que el cliente ya haya compartido."
+                    ),
+                },
+                "preguntas_para_alma": {
+                    "type": "string",
+                    "description": (
+                        "Las preguntas EXACTAS y directas que Alma necesita responder para orientar el "
+                        "caso (ej. '¿Qué protocolo es seguro para alguien con X en tratamiento de Y?')."
+                    ),
+                },
+            },
+            "required": ["resumen_caso", "preguntas_para_alma"],
+        },
+    },
+}
+
 PLANT_SEED_TOOL = {
     "type": "function",
     "function": {
@@ -892,6 +957,7 @@ ALL_TOOLS = [
     PLAN_TOOL,
     NAME_TOOL,
     ESCALATION_TOOL,
+    CLINICAL_ESCALATION_TOOL,
     PLANT_SEED_TOOL,
     START_SHARE_COURSE_TOOL,
     ADVANCE_SHARE_COURSE_TOOL,
@@ -993,6 +1059,33 @@ async def _escalate_to_human(sender_phone: str, motivo: str = None, resumen: str
         f"OK: escalado. Transmite este mensaje al cliente tal cual (puedes adaptar el saludo con su nombre si "
         f"lo tienes): \"{saludo}ya avisé a un asesor humano de I'AM para que revise tu caso personalmente y te "
         f"contacte lo antes posible. Gracias por tu paciencia.\""
+    )
+
+
+async def _escalate_clinical_case(
+    http_client: httpx.AsyncClient, sender_phone: str, resumen_caso: str = None, preguntas_para_alma: str = None
+) -> str:
+    if not resumen_caso or not preguntas_para_alma:
+        return "Necesito el resumen del caso y las preguntas específicas para Alma antes de escalar."
+
+    escalation_id = storage.create_clinical_escalation(sender_phone, resumen_caso, preguntas_para_alma)
+    customer = storage.get_customer(sender_phone)
+    name = customer.get("name") if customer else None
+
+    await send_whatsapp_message(
+        http_client, CEO_PHONE_NUMBER,
+        f"🩺 Caso clínico #{escalation_id} — consulta urgente\n"
+        f"Cliente: {name or 'sin nombre'} ({sender_phone})\n\n"
+        f"Resumen: {resumen_caso}\n\n"
+        f"Preguntas:\n{preguntas_para_alma}\n\n"
+        f"Responde este mensaje con tu recomendación y el número de teléfono del cliente para que TEO se lo "
+        f"transmita.",
+    )
+    logger.info("Caso clínico #%s escalado a Alma para %s.", escalation_id, sender_phone)
+    return (
+        "OK: caso escalado a Alma. Transmite al cliente, con tu propio tono cálido y acompañante (nunca frío "
+        "ni evasivo), que ya consultaste su caso con la experta de I'AM y que en breve le compartes su "
+        "recomendación personalizada."
     )
 
 
@@ -1639,6 +1732,38 @@ REPORT_PRODUCTION_TOOL = {
     },
 }
 
+RESPOND_CLINICAL_CASE_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "responder_caso_clinico",
+        "description": (
+            "Registra la respuesta/directriz técnica de Alma para un caso clínico escalado por TEO, y se la "
+            "transmite de inmediato al cliente correspondiente."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "telefono_cliente": {
+                    "type": "string",
+                    "description": "Teléfono del cliente al que aplica esta respuesta (solo dígitos).",
+                },
+                "respuesta_tecnica": {
+                    "type": "string",
+                    "description": "La recomendación/directriz técnica completa de Alma, tal cual la dio.",
+                },
+            },
+            "required": ["telefono_cliente", "respuesta_tecnica"],
+        },
+    },
+}
+
+STAFF_ALMA_PROMPT = """Eres un asistente interno (NO de cara a clientes) que ayuda a Alma Benítez, CEO de \
+I'AM, a responder casos clínicos delicados que TEO le escaló. Cuando te escriba con una recomendación \
+técnica para un caso (identificando al cliente por su teléfono), usa la función `responder_caso_clinico` con \
+el teléfono del cliente y su respuesta técnica completa, tal cual la haya dado — no la resumas ni la \
+reinterpretes. Si no puedes identificar el teléfono del cliente en su mensaje, NO llames a la función: \
+responde en texto pidiendo que lo incluya."""
+
 STAFF_CONTROL_PROMPT = """Eres un asistente interno (NO de cara a clientes) que ayuda al equipo de control de \
 pagos de I'AM a autorizar o rechazar pagos reportados por clientes. Tu única función es interpretar el \
 mensaje en español del humano y llamar a la función `autorizar_pedido` con: el teléfono del cliente que \
@@ -1682,8 +1807,7 @@ async def _handle_staff_message(
     el SYSTEM_PROMPT de cara al cliente, es un flujo interno separado. `dispatch` mapea nombre
     de función -> coroutine que recibe (http_client, **args) y devuelve el texto de resultado."""
     try:
-        completion = await groq_client.chat.completions.create(
-            model=GROQ_MODEL,
+        completion = await _create_chat_completion(
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_text},
@@ -1746,6 +1870,71 @@ async def _confirm_enrollment(
         f"Se verá reflejada en el sistema en aproximadamente {tiempo_reflejo}. ¡Bienvenido/a a I'AM!",
     )
     return f"Inscripción de {matched_phone} confirmada. Ya le avisé con el tiempo: {tiempo_reflejo}."
+
+
+ALMA_RESPONSE_FORMAT_PROMPT = """Vas a transmitir la respuesta de una experta humana de I'AM (Alma) a un \
+cliente por WhatsApp, con el tono cálido y cercano de TEO.
+
+REGLA ABSOLUTA: no cambies, resumas, omitas, suavices ni agregues NINGÚN dato técnico, cantidad, producto o \
+instrucción de la respuesta original. Tu único trabajo es envolverla en un saludo cálido y un cierre natural, \
+manteniendo el contenido técnico exactamente como Alma lo dio.
+
+Nombre del cliente (si lo hay): {nombre}
+Respuesta original de Alma: {respuesta}
+"""
+
+
+async def _format_alma_response_for_customer(phone: str, respuesta_tecnica: str) -> str:
+    """Envuelve la respuesta técnica de Alma en el tono cálido de TEO, sin alterar su contenido.
+    Si la llamada al modelo falla, cae a un formato simple determinístico (sin IA) para nunca
+    perder el mensaje."""
+    customer = storage.get_customer(phone)
+    name = customer.get("name") if customer else None
+    try:
+        completion = await _create_chat_completion(
+            messages=[
+                {
+                    "role": "system",
+                    "content": ALMA_RESPONSE_FORMAT_PROMPT.format(nombre=name or "(sin nombre)", respuesta=respuesta_tecnica),
+                },
+                {"role": "user", "content": "Transmite la respuesta."},
+            ],
+            temperature=0.3,
+            max_tokens=600,
+        )
+        return completion.choices[0].message.content.strip()
+    except Exception:
+        logger.exception("No se pudo formatear la respuesta de Alma con IA, se envía con formato simple.")
+        saludo = f"{name}, " if name else ""
+        return f"{saludo}nuestra experta Alma ya revisó tu caso. Esto es lo que recomienda:\n\n{respuesta_tecnica}"
+
+
+async def _respond_clinical_case(
+    http_client: httpx.AsyncClient, telefono_cliente: str = None, respuesta_tecnica: str = None
+) -> str:
+    client_digits = re.sub(r"\D", "", telefono_cliente or "")
+    if not client_digits:
+        return "No pude identificar el teléfono del cliente, inclúyelo de nuevo (solo dígitos)."
+    if not respuesta_tecnica:
+        return "Necesito el contenido de tu respuesta técnica para poder transmitirla."
+
+    matched_phone = client_digits
+    escalation = storage.answer_clinical_escalation(matched_phone, respuesta_tecnica)
+    if not escalation:
+        last10 = client_digits[-10:]
+        for candidate in (f"521{last10}", f"52{last10}", last10):
+            escalation = storage.answer_clinical_escalation(candidate, respuesta_tecnica)
+            if escalation:
+                matched_phone = candidate
+                break
+
+    if not escalation:
+        return f"No encontré un caso clínico pendiente para el teléfono {telefono_cliente}. Verifica el número."
+
+    customer_message = await _format_alma_response_for_customer(matched_phone, respuesta_tecnica)
+    await send_whatsapp_message(http_client, matched_phone, customer_message)
+    logger.info("Caso clínico #%s respondido por Alma y transmitido a %s.", escalation["id"], matched_phone)
+    return f"Listo, tu respuesta ya fue transmitida a {matched_phone}."
 
 
 async def _broadcast_inventory_update(http_client: httpx.AsyncClient) -> None:
@@ -1967,8 +2156,7 @@ async def _generate_marketing_insights(sample: list) -> str:
         return "No hay suficientes conversaciones recientes para generar insights hoy."
     sample_text = "\n".join(f"[{row['role']}] {row['content'][:200]}" for row in sample[-100:])
     try:
-        completion = await groq_client.chat.completions.create(
-            model=GROQ_MODEL,
+        completion = await _create_chat_completion(
             messages=[{"role": "system", "content": MARKETING_INSIGHTS_PROMPT.format(sample=sample_text)}],
             temperature=0.4,
             max_tokens=400,
@@ -1981,8 +2169,7 @@ async def _generate_marketing_insights(sample: list) -> str:
 
 async def _generate_training_ideas(insights_text: str) -> str:
     try:
-        completion = await groq_client.chat.completions.create(
-            model=GROQ_MODEL,
+        completion = await _create_chat_completion(
             messages=[{"role": "system", "content": TRAINING_IDEAS_PROMPT.format(insights=insights_text)}],
             temperature=0.5,
             max_tokens=300,
@@ -2020,7 +2207,7 @@ async def _send_daily_executive_reports(http_client: httpx.AsyncClient) -> None:
 async def run_executive_report_loop(http_client: httpx.AsyncClient) -> None:
     """Una vez al día (hora configurable), manda el reporte ejecutivo a la CEO, insights de
     marketing a Jacob, e ideas de capacitación a Rubén. Mismo patrón que run_reminder_loop
-    (scheduler.py), pero vive en main.py porque necesita groq_client."""
+    (scheduler.py), pero vive en main.py porque necesita llm_client."""
     logger.info(
         "Loop de reportes ejecutivos iniciado (hora configurada: %02d:%02d).",
         EXECUTIVE_REPORT_HOUR, EXECUTIVE_REPORT_MINUTE,
@@ -2051,7 +2238,7 @@ async def lifespan(app: FastAPI):
     app.state.executive_report_task = asyncio.create_task(
         run_executive_report_loop(app.state.http_client)
     )
-    logger.info("TEO iniciado correctamente. Modelo Groq: %s", GROQ_MODEL)
+    logger.info("TEO iniciado correctamente. Modelo principal: %s (respaldo: %s)", PRIMARY_MODEL, FALLBACK_MODEL)
     yield
     app.state.scheduler_task.cancel()
     app.state.executive_report_task.cancel()
@@ -2181,6 +2368,12 @@ async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> N
             [REPORT_PRODUCTION_TOOL],
             {"reportar_lote_produccion": _production_handler_for(sender_phone)},
         ),
+        (
+            {_normalize_phone(CEO_PHONE_NUMBER)},
+            STAFF_ALMA_PROMPT,
+            [RESPOND_CLINICAL_CASE_TOOL],
+            {"responder_caso_clinico": _respond_clinical_case},
+        ),
     ]
 
     if not staff_distributor_active:
@@ -2257,8 +2450,7 @@ async def get_ai_response(http_client: httpx.AsyncClient, sender_phone: str, use
 
     for attempt in (1, 2):
         try:
-            chat_completion = await groq_client.chat.completions.create(
-                model=GROQ_MODEL,
+            chat_completion = await _create_chat_completion(
                 messages=messages,
                 tools=ALL_TOOLS,
                 temperature=0.5,
@@ -2276,12 +2468,11 @@ async def get_ai_response(http_client: httpx.AsyncClient, sender_phone: str, use
             return reply
         except BadRequestError:
             # El modelo a veces intenta llamar a guardar_plan_semanal sin tener los datos
-            # completos (tool call mal disparado) y Groq rechaza la petición. Reintentamos
-            # la misma conversación sin la tool para que al menos conteste en texto plano.
-            logger.warning("Groq rechazó un tool call mal formado, reintentando sin tools...")
+            # completos (tool call mal disparado) y el proveedor rechaza la petición.
+            # Reintentamos la misma conversación sin la tool para que al menos conteste en texto plano.
+            logger.warning("El modelo rechazó un tool call mal formado, reintentando sin tools...")
             try:
-                fallback_completion = await groq_client.chat.completions.create(
-                    model=GROQ_MODEL,
+                fallback_completion = await _create_chat_completion(
                     messages=messages,
                     temperature=0.5,
                     max_tokens=1000,
@@ -2295,12 +2486,12 @@ async def get_ai_response(http_client: httpx.AsyncClient, sender_phone: str, use
                 break
         except RateLimitError:
             if attempt == 1:
-                logger.warning("Rate limit de Groq alcanzado, reintentando en unos segundos...")
+                logger.warning("Rate limit alcanzado (principal y respaldo), reintentando en unos segundos...")
                 await asyncio.sleep(8)
                 continue
-            logger.exception("Rate limit de Groq persiste tras reintento.")
+            logger.exception("Rate limit persiste tras reintento.")
         except Exception:
-            logger.exception("Error al consultar la API de Groq.")
+            logger.exception("Error al consultar el modelo de lenguaje.")
             break
 
     history.pop()  # no dejar el mensaje del usuario sin respuesta en el historial
@@ -2323,6 +2514,8 @@ async def _dispatch_tool_call(http_client: httpx.AsyncClient, sender_phone: str,
         return await _save_customer_name(sender_phone, **args)
     if name == "escalar_a_humano":
         return await _escalate_to_human(sender_phone, **args)
+    if name == "escalar_caso_clinico_alma":
+        return await _escalate_clinical_case(http_client, sender_phone, **args)
     if name == "plantar_semilla_negocio":
         return await _plant_business_seed(sender_phone, **args)
     if name == "iniciar_curso_compartir":
@@ -2367,8 +2560,7 @@ async def _run_tool_and_get_final_reply(
     for tool_call in tool_calls:
         tool_result = await _dispatch_tool_call(http_client, sender_phone, tool_call)
         followup_messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": tool_result})
-    final_completion = await groq_client.chat.completions.create(
-        model=GROQ_MODEL,
+    final_completion = await _create_chat_completion(
         messages=followup_messages,
         temperature=0.5,
         max_tokens=1000,

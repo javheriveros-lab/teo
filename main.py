@@ -18,6 +18,7 @@ import shipping
 import storage
 import vision
 from calendar_image import render_catalog_infographic, render_weekly_calendar
+from product_details import find_product_detail
 from product_images import find_product_image
 from exercises import get_exercises_for_focus
 from scheduler import TIMEZONE, run_reminder_loop
@@ -252,6 +253,10 @@ de inmediato.
 Si en cambio pide ver la foto de UN producto específico (ej. "muéstrame el Bisxantone", "tienes \
 foto del Sheyck"), usa `mostrar_imagen_producto` con el nombre de ese producto — es distinta de \
 `mostrar_catalogo_visual`, que es solo la vista general por categorías.
+Si el cliente pregunta el detalle completo de un producto (ingrediente por ingrediente, o por qué \
+dos productos hacen sinergia juntos) más allá de lo que ya sabes de este catálogo, usa \
+`obtener_detalle_producto` con el nombre del producto antes de responder — no todos los productos \
+tienen ficha extendida todavía, y si no la hay, no inventes ingredientes ni mecanismos.
 
 CATÁLOGO DE PROTOCOLOS/COMBOS (usa esto para recomendar; no inventes protocolos que no estén aquí):
 Aviso de marca aplicable a todo el catálogo: estos productos no son medicamentos; su consumo es \
@@ -995,6 +1000,27 @@ PRODUCT_IMAGE_TOOL = {
     },
 }
 
+PRODUCT_DETAIL_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "obtener_detalle_producto",
+        "description": (
+            "Consulta la ficha técnica EXTENDIDA de un producto (ingrediente por ingrediente, "
+            "tips de sinergia con otros productos) cuando el cliente pregunta el detalle completo "
+            "de para qué sirve cada componente o por qué dos productos combinan bien. No todos "
+            "los productos tienen ficha extendida todavía — si no hay, responde con lo que ya "
+            "sabes del catálogo general, sin inventar."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "producto": {"type": "string", "description": "Nombre del producto del que quieres el detalle completo."},
+            },
+            "required": ["producto"],
+        },
+    },
+}
+
 ALL_TOOLS = [
     PLAN_TOOL,
     NAME_TOOL,
@@ -1009,6 +1035,7 @@ ALL_TOOLS = [
     DELIVERY_NOTES_TOOL,
     CATALOG_IMAGE_TOOL,
     PRODUCT_IMAGE_TOOL,
+    PRODUCT_DETAIL_TOOL,
 ]
 
 BUSINESS_SEED_MESSAGE = (
@@ -2577,6 +2604,8 @@ async def _dispatch_tool_call(http_client: httpx.AsyncClient, sender_phone: str,
         return await _send_catalog_infographic(http_client, sender_phone, **args)
     if name == "mostrar_imagen_producto":
         return await _send_product_image(http_client, sender_phone, **args)
+    if name == "obtener_detalle_producto":
+        return await _get_product_detail(**args)
     return f"ERROR: función '{name}' desconocida."
 
 
@@ -2717,6 +2746,24 @@ async def _send_catalog_infographic(http_client: httpx.AsyncClient, sender_phone
         return "No pude enviar la imagen del catálogo justo ahora, pero puedo explicarte los protocolos en texto."
 
     return "OK: imagen del catálogo enviada al cliente."
+
+
+async def _get_product_detail(producto: str = None, **_ignored) -> str:
+    """Devuelve la ficha técnica extendida de un producto (si existe) para que TEO la use como
+    base real al explicar ingrediente por ingrediente o sinergias — nunca para que la invente."""
+    if not producto:
+        return "Necesito que me digas de qué producto quieres el detalle completo."
+
+    match = find_product_detail(producto)
+    if not match:
+        return (
+            f"OK: no tengo una ficha extendida guardada de '{producto}' todavía. Usa lo que ya "
+            f"sabes del catálogo general (dosis y beneficios principales) y, si el cliente pide "
+            f"más detalle del que tienes, ofrece conectarlo con un asesor — no inventes "
+            f"ingredientes ni mecanismos que no estén documentados."
+        )
+    canonical_name, full_text = match
+    return f"OK: ficha técnica completa de {canonical_name}:\n\n{full_text}"
 
 
 async def _send_product_image(http_client: httpx.AsyncClient, sender_phone: str, producto: str = None, **_ignored) -> str:

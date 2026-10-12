@@ -18,6 +18,7 @@ import shipping
 import storage
 import vision
 from calendar_image import render_catalog_infographic, render_weekly_calendar
+from product_images import find_product_image
 from exercises import get_exercises_for_focus
 from scheduler import TIMEZONE, run_reminder_loop
 
@@ -237,9 +238,20 @@ hora. Cuando sí haya éxito, NO vuelvas a listar los 7 días en texto (sería r
 mandó) — confirma de forma breve y cálida que el calendario está arriba, que el suplemento llega junto con la \
 comida elegida con una sugerencia distinta cada día, y que el entrenamiento respeta los días de descanso.
 
-Si el cliente pide ver una imagen o infografía de los protocolos/catálogo (no su plan personal, eso es \
-`guardar_plan_semanal`), usa la función `mostrar_catalogo_visual` — no le digas que no puedes generar \
-imágenes, esa función sí existe.
+CONTEO DE PRODUCTOS: I'AM tiene actualmente 30 productos individuales en su catálogo (sin contar \
+los combos/protocolos, que son combinaciones de estos mismos productos). Si te preguntan cuántos \
+productos tiene I'AM, responde con ese número directamente — nunca des una respuesta vaga tipo \
+"una amplia variedad" ni confundas esto con un conteo de protocolos.
+
+Si el cliente pide ver una imagen o infografía general de los protocolos/catálogo (no su plan \
+personal, eso es `guardar_plan_semanal`), usa la función `mostrar_catalogo_visual` EN ESE MISMO \
+turno — no le digas que no puedes generar imágenes (esa función sí existe), no digas "ya te lo \
+envié" sin haber llamado a la función primero, y no esperes un turno adicional si el cliente ya \
+confirmó que sí quiere verlo (incluyendo una respuesta corta como "sí" o "va"): llama a la función \
+de inmediato.
+Si en cambio pide ver la foto de UN producto específico (ej. "muéstrame el Bisxantone", "tienes \
+foto del Sheyck"), usa `mostrar_imagen_producto` con el nombre de ese producto — es distinta de \
+`mostrar_catalogo_visual`, que es solo la vista general por categorías.
 
 CATÁLOGO DE PROTOCOLOS/COMBOS (usa esto para recomendar; no inventes protocolos que no estén aquí):
 Aviso de marca aplicable a todo el catálogo: estos productos no son medicamentos; su consumo es \
@@ -366,7 +378,12 @@ capletas. Siempre acompañada de al menos 2 vasos de agua.
 desayuno o de la comida.
 - Super Leche, Power Milk, Power Shake: 2 cucharadas diluidas en un vaso con agua o leche al gusto, en ayunas \
 30 min antes de desayuno, comida y cena.
-- Renover Shot: 2 atomizaciones debajo de la lengua, 30 min antes de desayuno, comida y cena.
+- Renover Shot (concentrado de antioxidantes con Vitamina C, Coenzima Q10, Magnesio y extracto \
+estandarizado de Goji; presentación spray 40 ml): 2 atomizaciones debajo de la lengua, 30 min antes \
+de desayuno, comida y cena.
+- Biotic (probiótico, 8 cepas incluyendo Lactobacillus y Bifidobacterium + raíz de achicoria; \
+cápsula de liberación retardada 45 min, 200 mil millones de probióticos, 60 cápsulas): 2 cápsulas \
+antes del desayuno.
 - Breathe Strong: cada 4 horas, de preferencia haciendo gárgaras 30 segundos; no ingerir alimentos ni agua en \
 los siguientes 30 minutos.
 - Energy Gel: uso tópico en la zona afectada para golpes o quemaduras (NUNCA se ingiere en esos casos); para \
@@ -426,6 +443,12 @@ detalles que no están en ella: "Hecen Mangosteen cuenta con investigación del 
 Cancerología como soporte integrativo." Preséntalo siempre como apoyo/coadyuvante durante un tratamiento \
 médico, nunca como cura o sustituto de este. Menciónalo cuando el contexto sea relevante (soporte celular, \
 antioxidantes, resiliencia, o cuando pregunten por respaldo científico).
+- Biotic es la incorporación más reciente al catálogo: un probiótico de 8 cepas (incluye \
+Lactobacillus y Bifidobacterium) más raíz de achicoria, con cápsula de liberación retardada. \
+Menciónalo cuando el tema sea salud digestiva, sistema inmune, inflamación, o el eje \
+intestino-cerebro (salud mental/estado de ánimo vía microbiota). No tiene precio público \
+confirmado todavía: si preguntan cuánto cuesta, ofrece conectar con un asesor para confirmarlo, \
+nunca inventes una cifra.
 
 REGLAS DE SEGURIDAD Y RESPONSABILIDAD (INNEGOCIABLES):
 - No diagnostiques enfermedades, no prometas curas ni sustituyas una consulta médica.
@@ -953,6 +976,25 @@ CATALOG_IMAGE_TOOL = {
     },
 }
 
+PRODUCT_IMAGE_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "mostrar_imagen_producto",
+        "description": (
+            "Envía la foto real de UN producto específico (ej. 'muéstrame el Bisxantone', "
+            "'tienes foto del Sheyck'). Distinta de mostrar_catalogo_visual, que es la vista "
+            "general del catálogo por categorías."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "producto": {"type": "string", "description": "Nombre del producto que el cliente quiere ver."},
+            },
+            "required": ["producto"],
+        },
+    },
+}
+
 ALL_TOOLS = [
     PLAN_TOOL,
     NAME_TOOL,
@@ -966,6 +1008,7 @@ ALL_TOOLS = [
     ENROLLMENT_TOOL,
     DELIVERY_NOTES_TOOL,
     CATALOG_IMAGE_TOOL,
+    PRODUCT_IMAGE_TOOL,
 ]
 
 BUSINESS_SEED_MESSAGE = (
@@ -2532,6 +2575,8 @@ async def _dispatch_tool_call(http_client: httpx.AsyncClient, sender_phone: str,
         return await _start_enrollment(sender_phone, **args)
     if name == "mostrar_catalogo_visual":
         return await _send_catalog_infographic(http_client, sender_phone, **args)
+    if name == "mostrar_imagen_producto":
+        return await _send_product_image(http_client, sender_phone, **args)
     return f"ERROR: función '{name}' desconocida."
 
 
@@ -2672,6 +2717,64 @@ async def _send_catalog_infographic(http_client: httpx.AsyncClient, sender_phone
         return "No pude enviar la imagen del catálogo justo ahora, pero puedo explicarte los protocolos en texto."
 
     return "OK: imagen del catálogo enviada al cliente."
+
+
+async def _send_product_image(http_client: httpx.AsyncClient, sender_phone: str, producto: str = None, **_ignored) -> str:
+    """Envía la foto real de un producto específico (extraída del catálogo oficial), buscando
+    por nombre/alias flexible. Si no encuentra una imagen para ese producto, nunca inventa ni
+    envía una imagen incorrecta — responde en texto."""
+    if not producto:
+        return "Necesito que me digas de qué producto quieres ver la foto."
+
+    match = find_product_image(producto)
+    if not match:
+        return (
+            f"OK: no tengo todavía una imagen guardada de '{producto}'. Dile al cliente que no "
+            f"tienes esa foto a la mano por ahora, pero que puedes describírselo en texto o "
+            f"conectarlo con un asesor para que se la mande."
+        )
+    canonical_name, image_path = match
+
+    try:
+        image_bytes = image_path.read_bytes()
+    except OSError:
+        logger.exception("No se pudo leer el archivo de imagen para %s (%s).", canonical_name, image_path)
+        return f"No pude abrir la imagen de {canonical_name} justo ahora, pero puedo describírtelo en texto."
+
+    headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}"}
+    try:
+        upload_response = await http_client.post(
+            WHATSAPP_MEDIA_URL,
+            headers=headers,
+            data={"messaging_product": "whatsapp", "type": "image/jpeg"},
+            files={"file": (image_path.name, image_bytes, "image/jpeg")},
+        )
+        if upload_response.status_code >= 400:
+            logger.error(
+                "Error al subir la imagen de %s (%s): %s", canonical_name, upload_response.status_code, upload_response.text
+            )
+            return f"No pude enviar la imagen de {canonical_name} justo ahora, pero puedo describírtelo en texto."
+        media_id = upload_response.json().get("id")
+
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": sender_phone,
+            "type": "image",
+            "image": {"id": media_id, "caption": f"{canonical_name} — I'AM"},
+        }
+        send_response = await http_client.post(
+            WHATSAPP_API_URL, headers={**headers, "Content-Type": "application/json"}, json=payload
+        )
+        if send_response.status_code >= 400:
+            logger.error(
+                "Error al enviar la imagen de %s (%s): %s", canonical_name, send_response.status_code, send_response.text
+            )
+            return f"No pude enviar la imagen de {canonical_name} justo ahora, pero puedo describírtelo en texto."
+    except httpx.HTTPError:
+        logger.exception("Fallo de red al enviar la imagen de %s.", canonical_name)
+        return f"No pude enviar la imagen de {canonical_name} justo ahora, pero puedo describírtelo en texto."
+
+    return f"OK: imagen real de {canonical_name} enviada al cliente."
 
 
 async def _download_whatsapp_media(http_client: httpx.AsyncClient, media_id: str):

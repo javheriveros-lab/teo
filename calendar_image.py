@@ -12,10 +12,11 @@ FONT_BOLD = FONTS_DIR / "Roboto-Bold.ttf"
 WIDTH = 1000
 MARGIN = 30
 HEADER_H = 150
-ROW_H = 70
-COL_DAY_W = 140
-COL_TRAIN_W = 330
-COL_FOOD_W = WIDTH - 2 * MARGIN - COL_DAY_W - COL_TRAIN_W
+ROW_H = 80
+COL_DAY_W = 95
+COL_SUP_W = 230
+COL_TRAIN_W = 260
+COL_FOOD_W = WIDTH - 2 * MARGIN - COL_DAY_W - COL_SUP_W - COL_TRAIN_W
 
 COLOR_BG = (255, 255, 255)
 COLOR_HEADER_BG = (20, 90, 70)
@@ -119,8 +120,13 @@ def render_weekly_calendar(
         fill=COLOR_HEADER_TEXT,
     )
 
-    col_x = [MARGIN, MARGIN + COL_DAY_W, MARGIN + COL_DAY_W + COL_TRAIN_W]
-    headers = ["Día", "Entrenamiento", "Sugerencia de comida"]
+    col_x = [
+        MARGIN,
+        MARGIN + COL_DAY_W,
+        MARGIN + COL_DAY_W + COL_SUP_W,
+        MARGIN + COL_DAY_W + COL_SUP_W + COL_TRAIN_W,
+    ]
+    headers = ["Día", "Suplemento", "Entrenamiento", "Sugerencia de comida"]
     header_y = HEADER_H
     draw.rectangle([MARGIN, header_y, WIDTH - MARGIN, header_y + 44], fill=COLOR_ACCENT)
     for x, text in zip(col_x, headers):
@@ -135,13 +141,19 @@ def render_weekly_calendar(
 
         draw.text((col_x[0] + 10, y + 10), day_names[day_index], font=body_font, fill=COLOR_TEXT)
 
+        # Suplementación: mismo horario y protocolo todos los días (no varía como el entrenamiento),
+        # para que los tres pilares (suplemento + entrenamiento + comida) se vean juntos en cada fila.
+        sup_label = f"{protocol_name} — {sup_time} con {meal_label}"
+        for i, line in enumerate(_wrap(draw, sup_label, body_font, COL_SUP_W - 20)[:3]):
+            draw.text((col_x[1] + 10, y + 8 + i * 22), line, font=body_font, fill=COLOR_TEXT)
+
         training_label = "Descanso" if is_rest else training.capitalize()
         for i, line in enumerate(_wrap(draw, training_label, body_font, COL_TRAIN_W - 20)[:2]):
-            draw.text((col_x[1] + 10, y + 8 + i * 22), line, font=body_font, fill=COLOR_TEXT)
+            draw.text((col_x[2] + 10, y + 8 + i * 22), line, font=body_font, fill=COLOR_TEXT)
 
         if not is_rest:
             for i, line in enumerate(_wrap(draw, food, body_font, COL_FOOD_W - 20)[:2]):
-                draw.text((col_x[2] + 10, y + 8 + i * 22), line, font=body_font, fill=COLOR_TEXT)
+                draw.text((col_x[3] + 10, y + 8 + i * 22), line, font=body_font, fill=COLOR_TEXT)
 
         y += ROW_H
 

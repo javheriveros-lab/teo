@@ -10,7 +10,7 @@ FONT_REGULAR = FONTS_DIR / "Roboto-Regular.ttf"
 FONT_BOLD = FONTS_DIR / "Roboto-Bold.ttf"
 
 WIDTH = 1000
-MARGIN = 30
+MARGIN = 36
 HEADER_H = 150
 ROW_H = 80
 COL_DAY_W = 95
@@ -18,14 +18,15 @@ COL_SUP_W = 230
 COL_TRAIN_W = 260
 COL_FOOD_W = WIDTH - 2 * MARGIN - COL_DAY_W - COL_SUP_W - COL_TRAIN_W
 
-COLOR_BG = (255, 255, 255)
-COLOR_HEADER_BG = (20, 90, 70)
-COLOR_HEADER_TEXT = (255, 255, 255)
-COLOR_TEXT = (30, 30, 30)
-COLOR_REST_BG = (235, 235, 235)
-COLOR_ROW_ALT = (244, 249, 247)
-COLOR_GRID = (210, 210, 210)
-COLOR_ACCENT = (20, 90, 70)
+# Paleta "zen-futurista": carbón + dorado mate sobre fondo cálido, sin bloques de color —
+# separadores finos en vez de celdas rellenas, para una lectura más limpia y elegante.
+COLOR_BG = (250, 249, 246)
+COLOR_HEADER_BG = (24, 24, 23)
+COLOR_HEADER_TEXT = (247, 245, 240)
+COLOR_TEXT = (38, 37, 34)
+COLOR_TEXT_MUTED = (154, 150, 140)
+COLOR_HAIRLINE = (223, 219, 210)
+COLOR_ACCENT = (176, 138, 60)
 
 
 def _font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
@@ -101,24 +102,28 @@ def render_weekly_calendar(
     en orden Lunes(0)..Domingo(6). Devuelve bytes PNG listos para subir a WhatsApp."""
     day_names = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
-    height = HEADER_H + ROW_H * 7 + MARGIN
+    height = HEADER_H + 66 + ROW_H * 7 + MARGIN
     img = Image.new("RGB", (WIDTH, height), COLOR_BG)
     draw = ImageDraw.Draw(img)
 
-    title_font = _font(30, bold=True)
-    subtitle_font = _font(20)
-    header_font = _font(20, bold=True)
-    body_font = _font(18)
+    title_font = _font(28, bold=False)
+    subtitle_font = _font(17)
+    header_font = _font(14, bold=True)
+    label_font = _font(17, bold=True)
+    body_font = _font(17)
+    muted_font = _font(16)
 
+    # Encabezado: carbón sobrio, tipografía ligera, sin franjas de color duras.
     draw.rectangle([0, 0, WIDTH, HEADER_H], fill=COLOR_HEADER_BG)
-    draw.text((MARGIN, 20), "Plan de optimización I'AM · 1 mes (4 semanas)", font=title_font, fill=COLOR_HEADER_TEXT)
-    draw.text((MARGIN, 62), f"Protocolo: {protocol_name}", font=subtitle_font, fill=COLOR_HEADER_TEXT)
+    draw.text((MARGIN, 32), "Plan de Optimización I'AM", font=title_font, fill=COLOR_HEADER_TEXT)
+    draw.text((MARGIN, 72), "1 mes · 4 semanas", font=subtitle_font, fill=COLOR_ACCENT)
     draw.text(
-        (MARGIN, 92),
-        f"Suplemento {sup_time} junto con {meal_label}   ·   Entrenamiento {ent_time}",
+        (MARGIN, 104),
+        f"{protocol_name}   ·   Suplemento {sup_time} con {meal_label}   ·   Entrenamiento {ent_time}",
         font=subtitle_font,
         fill=COLOR_HEADER_TEXT,
     )
+    draw.line([(MARGIN, HEADER_H - 1), (WIDTH - MARGIN, HEADER_H - 1)], fill=COLOR_ACCENT, width=1)
 
     col_x = [
         MARGIN,
@@ -126,40 +131,38 @@ def render_weekly_calendar(
         MARGIN + COL_DAY_W + COL_SUP_W,
         MARGIN + COL_DAY_W + COL_SUP_W + COL_TRAIN_W,
     ]
-    headers = ["Día", "Suplemento", "Entrenamiento", "Sugerencia de comida"]
-    header_y = HEADER_H
-    draw.rectangle([MARGIN, header_y, WIDTH - MARGIN, header_y + 44], fill=COLOR_ACCENT)
+    headers = ["DÍA", "SUPLEMENTO", "ENTRENAMIENTO", "COMIDA SUGERIDA"]
+    header_y = HEADER_H + 26
     for x, text in zip(col_x, headers):
-        draw.text((x + 10, header_y + 10), text, font=header_font, fill=COLOR_HEADER_TEXT)
+        draw.text((x, header_y), text, font=header_font, fill=COLOR_ACCENT)
+    rule_y = header_y + 26
+    draw.line([(MARGIN, rule_y), (WIDTH - MARGIN, rule_y)], fill=COLOR_HAIRLINE, width=1)
 
-    y = header_y + 44
+    y = rule_y + 14
     ordered = sorted(weekly_plan, key=lambda row: row[0])
-    for index, (day_index, food, training) in enumerate(ordered):
+    for day_index, food, training in ordered:
         is_rest = training.upper() == "DESCANSO"
-        row_bg = COLOR_REST_BG if is_rest else (COLOR_ROW_ALT if index % 2 else COLOR_BG)
-        draw.rectangle([MARGIN, y, WIDTH - MARGIN, y + ROW_H], fill=row_bg)
+        day_color = COLOR_TEXT_MUTED if is_rest else COLOR_TEXT
 
-        draw.text((col_x[0] + 10, y + 10), day_names[day_index], font=body_font, fill=COLOR_TEXT)
+        draw.text((col_x[0], y + 12), day_names[day_index], font=label_font, fill=day_color)
 
-        # Suplementación: mismo horario y protocolo todos los días (no varía como el entrenamiento),
-        # para que los tres pilares (suplemento + entrenamiento + comida) se vean juntos en cada fila.
+        # Suplementación: mismo horario y protocolo todos los días (no varía como el entrenamiento,
+        # continúa incluso en día de descanso), para que los tres pilares queden juntos en cada fila.
         sup_label = f"{protocol_name} — {sup_time} con {meal_label}"
-        for i, line in enumerate(_wrap(draw, sup_label, body_font, COL_SUP_W - 20)[:3]):
-            draw.text((col_x[1] + 10, y + 8 + i * 22), line, font=body_font, fill=COLOR_TEXT)
+        for i, line in enumerate(_wrap(draw, sup_label, body_font, COL_SUP_W - 16)[:3]):
+            draw.text((col_x[1], y + 10 + i * 22), line, font=body_font, fill=COLOR_TEXT)
 
-        training_label = "Descanso" if is_rest else training.capitalize()
-        for i, line in enumerate(_wrap(draw, training_label, body_font, COL_TRAIN_W - 20)[:2]):
-            draw.text((col_x[2] + 10, y + 8 + i * 22), line, font=body_font, fill=COLOR_TEXT)
+        training_label = "— descanso —" if is_rest else training.capitalize()
+        training_font = muted_font if is_rest else body_font
+        for i, line in enumerate(_wrap(draw, training_label, training_font, COL_TRAIN_W - 16)[:2]):
+            draw.text((col_x[2], y + 10 + i * 22), line, font=training_font, fill=day_color)
 
         if not is_rest:
-            for i, line in enumerate(_wrap(draw, food, body_font, COL_FOOD_W - 20)[:2]):
-                draw.text((col_x[3] + 10, y + 8 + i * 22), line, font=body_font, fill=COLOR_TEXT)
+            for i, line in enumerate(_wrap(draw, food, body_font, COL_FOOD_W - 16)[:2]):
+                draw.text((col_x[3], y + 10 + i * 22), line, font=body_font, fill=COLOR_TEXT)
 
         y += ROW_H
-
-    for x in [*col_x, WIDTH - MARGIN]:
-        draw.line([(x, header_y), (x, height - MARGIN + ROW_H - ROW_H)], fill=COLOR_GRID)
-    draw.rectangle([MARGIN, header_y, WIDTH - MARGIN, y], outline=COLOR_GRID)
+        draw.line([(MARGIN, y - 1), (WIDTH - MARGIN, y - 1)], fill=COLOR_HAIRLINE, width=1)
 
     buffer = BytesIO()
     img.save(buffer, format="PNG")

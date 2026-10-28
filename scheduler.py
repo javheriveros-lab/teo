@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -20,6 +21,10 @@ TEMPLATE_EDUCACION_RECETA = "teo_educacion_receta"
 TEMPLATE_CHECKIN_NOCTURNO = "teo_checkin_nocturno"
 TEMPLATE_RESUMEN_SEMANAL = "teo_resumen_semanal"
 TEMPLATE_EJERCICIO = "teo_plan_ejercicio_v1"
+TEMPLATE_HABITO_DIARIO = "teo_habito_diario"
+
+HABIT_HOUR = 9  # 9am hora de CDMX — envío diario del hábito a todos los clientes con plan activo
+HABIT_MINUTE = 0
 
 CHECK_INTERVAL_SECONDS = 30
 
@@ -164,4 +169,47 @@ async def run_reminder_loop(http_client: httpx.AsyncClient, api_url: str, token:
         except Exception:
             logger.exception("Error inesperado en el ciclo del scheduler de recordatorios.")
 
+        await asyncio.sleep(CHECK_INTERVAL_SECONDS)
+
+
+def _template_param(text: str) -> str:
+    """Meta rechaza parámetros de plantilla con saltos de línea, tabs o 4+ espacios seguidos."""
+    return re.sub(r"\s+", " ", text or "").strip()
+
+
+async def broadcast_habit(http_client: httpx.AsyncClient, api_url: str, token: str, habit: dict, today_str: str) -> int:
+    """Manda un hábito (nombre, descripción y video) a todos los clientes con plan activo, con
+    la plantilla aprobada para que llegue aunque el cliente no haya escrito en las últimas 24h.
+    Marca el hábito como enviado hoy para que el loop diario no lo repita. Devuelve cuántos
+    envíos tuvieron éxito."""
+    params_tail = [_template_param(habit["name"]), _template_param(habit["description"]), habit["video_url"]]
+    sent_count = 0
+    for phone in storage.get_habit_recipients():
+        name = _display_name(storage.get_customer(phone))
+        payload = _text_payload(phone, TEMPLATE_HABITO_DIARIO, [name, *params_tail])
+        if await _send(http_client, api_url, token, payload, phone, "habito_diario"):
+            sent_count += 1
+    storage.mark_habit_sent(habit["id"], today_str)
+    logger.info("Hábito #%s '%s' enviado a %s cliente(s).", habit["id"], habit["name"], sent_count)
+    return sent_count
+
+
+async def run_habit_loop(http_client: httpx.AsyncClient, api_url: str, token: str) -> None:
+    logger.info("Loop de hábitos diarios iniciado (hora configurada: %02d:%02d).", HABIT_HOUR, HABIT_MINUTE)
+    while True:
+        try:
+            now = datetime.now(TIMEZONE)
+            today_str = now.date().isoformat()
+            # Ventana de una hora (no el minuto exacto) para que un redeploy justo a esa hora no
+            # haga perder el envío del día; habit_sent_on evita duplicarlo dentro de la ventana.
+            if (
+                now.hour == HABIT_HOUR
+                and now.minute >= HABIT_MINUTE
+                and not storage.habit_sent_on(today_str)
+            ):
+                habit = storage.get_next_habit()
+                if habit:
+                    await broadcast_habit(http_client, api_url, token, habit, today_str)
+        except Exception:
+            logger.exception("Error inesperado en el loop de hábitos diarios.")
         await asyncio.sleep(CHECK_INTERVAL_SECONDS)

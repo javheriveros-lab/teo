@@ -193,6 +193,20 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS habits (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL,
+                video_url TEXT NOT NULL,
+                created_by TEXT,
+                active INTEGER NOT NULL DEFAULT 1,
+                last_sent_date TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
 
 
 def upsert_customer(
@@ -773,3 +787,68 @@ def get_recent_conversations_sample(limit: int = 200, exclude_phones: set = None
             (*exclude_params, limit),
         ).fetchall()
         return [dict(row) for row in reversed(rows)]
+
+
+def create_habit(name: str, description: str, video_url: str, created_by: str = None) -> int:
+    with _connection() as conn:
+        cursor = conn.execute(
+            "INSERT INTO habits (name, description, video_url, created_by) VALUES (?, ?, ?, ?)",
+            (name, description, video_url, created_by),
+        )
+        return cursor.lastrowid
+
+
+def get_habit(habit_id: int):
+    with _connection() as conn:
+        row = conn.execute("SELECT * FROM habits WHERE id = ?", (habit_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def list_habits(active_only: bool = True) -> list:
+    where = " WHERE active = 1" if active_only else ""
+    with _connection() as conn:
+        rows = conn.execute(f"SELECT * FROM habits{where} ORDER BY id DESC").fetchall()
+        return [dict(row) for row in rows]
+
+
+def deactivate_habit(habit_id: int) -> bool:
+    with _connection() as conn:
+        cursor = conn.execute("UPDATE habits SET active = 0 WHERE id = ? AND active = 1", (habit_id,))
+        return cursor.rowcount > 0
+
+
+def get_next_habit():
+    """Hábito del día: primero los que nunca se han enviado (en orden de registro), después
+    rota por el que lleva más tiempo sin enviarse."""
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM habits WHERE active = 1 "
+            "ORDER BY last_sent_date IS NOT NULL, last_sent_date ASC, id ASC LIMIT 1"
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def mark_habit_sent(habit_id: int, date_str: str) -> None:
+    with _connection() as conn:
+        conn.execute("UPDATE habits SET last_sent_date = ? WHERE id = ?", (date_str, habit_id))
+
+
+def habit_sent_on(date_str: str) -> bool:
+    """Persistido en BD (no en memoria) para que un reinicio/redeploy no duplique el envío del día."""
+    with _connection() as conn:
+        row = conn.execute("SELECT 1 FROM habits WHERE last_sent_date = ? LIMIT 1", (date_str,)).fetchone()
+        return row is not None
+
+
+def get_habit_recipients() -> list:
+    """Clientes que aceptaron su plan calendarizado (tienen recordatorios activos) y no
+    escribieron PAUSA — son los únicos que ya optaron por recibir mensajes diarios de TEO."""
+    with _connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT DISTINCT r.phone FROM reminders r
+            LEFT JOIN customers c ON c.phone = r.phone
+            WHERE r.active = 1 AND COALESCE(c.paused, 0) = 0
+            """
+        ).fetchall()
+        return [row["phone"] for row in rows]

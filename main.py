@@ -21,7 +21,7 @@ from calendar_image import render_catalog_infographic, render_weekly_calendar
 from product_details import find_product_detail
 from product_images import find_product_image
 from exercises import get_exercises_for_focus
-from scheduler import TIMEZONE, run_reminder_loop
+from scheduler import HABIT_HOUR, HABIT_MINUTE, TIMEZONE, broadcast_habit, run_habit_loop, run_reminder_loop
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 logger = logging.getLogger("teo")
@@ -1085,6 +1085,20 @@ PRODUCT_DETAIL_TOOL = {
     },
 }
 
+HABITS_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "ver_habitos",
+        "description": (
+            "Consulta los hábitos diarios que el equipo de I'AM tiene publicados (nombre, descripción "
+            "y enlace al video). Úsala cuando el cliente pregunte por hábitos, rutinas sencillas, "
+            "videos de entrenamiento o qué puede empezar a hacer hoy, o para sugerirle un nuevo "
+            "hábito que encaje con lo que te ha contado."
+        ),
+        "parameters": {"type": "object", "properties": {}},
+    },
+}
+
 ALL_TOOLS = [
     PLAN_TOOL,
     NAME_TOOL,
@@ -1100,6 +1114,7 @@ ALL_TOOLS = [
     CATALOG_IMAGE_TOOL,
     PRODUCT_IMAGE_TOOL,
     PRODUCT_DETAIL_TOOL,
+    HABITS_TOOL,
 ]
 
 BUSINESS_SEED_MESSAGE = (
@@ -1891,6 +1906,58 @@ RESPOND_CLINICAL_CASE_TOOL = {
     },
 }
 
+REGISTER_HABIT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "registrar_habito",
+        "description": (
+            "Registra un nuevo hábito diario (nombre, descripción y URL del video) para que TEO lo "
+            "comparta con los clientes. Entra a la rotación del envío diario automático, o se manda "
+            "hoy mismo a todos si Jacob lo pide explícitamente."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "nombre": {"type": "string", "description": "Nombre corto del hábito (ej. 'Respiración 4-7-8')."},
+                "descripcion": {
+                    "type": "string",
+                    "description": "Descripción del hábito tal cual la dio Jacob: qué es y cómo hacerlo.",
+                },
+                "url_video": {"type": "string", "description": "Enlace completo (http/https) al video del hábito."},
+                "enviar_ahora": {
+                    "type": "boolean",
+                    "description": "true solo si Jacob pide explícitamente mandarlo ya/hoy a los clientes.",
+                },
+            },
+            "required": ["nombre", "descripcion", "url_video"],
+        },
+    },
+}
+
+LIST_HABITS_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "listar_habitos",
+        "description": "Lista los hábitos activos registrados, con su número (id) y la última fecha en que se enviaron.",
+        "parameters": {"type": "object", "properties": {}},
+    },
+}
+
+DEACTIVATE_HABIT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "desactivar_habito",
+        "description": "Saca un hábito de la rotación diaria (deja de enviarse y de sugerirse), por su número (id).",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "id_habito": {"type": "integer", "description": "Número (id) del hábito, como aparece en la lista."},
+            },
+            "required": ["id_habito"],
+        },
+    },
+}
+
 STAFF_ALMA_PROMPT = """Eres un asistente interno (NO de cara a clientes) que ayuda a Alma Benítez, CEO de \
 I'AM, a responder casos clínicos delicados que TEO le escaló. Cuando te escriba con una recomendación \
 técnica para un caso (identificando al cliente por su teléfono), usa la función `responder_caso_clinico` con \
@@ -1927,11 +1994,15 @@ tiempo en que se reflejará su inscripción. Si no puedes identificar el teléfo
 la función: responde en texto pidiendo que lo incluya."""
 
 STAFF_JACOB_PROMPT = """Eres un asistente interno (NO de cara a clientes) que ayuda a Jacob Riveros, quien \
-tiene un rol doble en I'AM: Marketing e Inteligencia de Conversaciones, y también Jefe de Producción. Tu \
-única función aquí es interpretar cuando te reporte un lote de producto terminado y llamar a \
-`reportar_lote_produccion` con: el nombre del producto, la cantidad del lote, y la banda de garantía (código \
-de seguridad del lote). Si falta alguno de esos 3 datos, NO llames a la función: responde en texto pidiendo \
-el dato que falta."""
+tiene un rol doble en I'AM: Marketing e Inteligencia de Conversaciones, y también Jefe de Producción. Puedes \
+hacer 2 tipos de cosas:
+(1) Producción: cuando reporte un lote de producto terminado, llama a `reportar_lote_produccion` con el nombre \
+del producto, la cantidad del lote y la banda de garantía (código de seguridad del lote).
+(2) Hábitos diarios para clientes: registrar un nuevo hábito con `registrar_habito` (nombre, descripción y URL \
+del video; `enviar_ahora` en true solo si pide mandarlo ya/hoy), ver los hábitos activos con `listar_habitos`, \
+o sacar uno de la rotación con `desactivar_habito` (por su número). Conserva la descripción tal cual la \
+escribió, sin resumirla ni reinterpretarla.
+Si falta algún dato obligatorio, NO llames a la función: responde en texto pidiendo el dato que falta."""
 
 
 async def _handle_staff_message(
@@ -1948,7 +2019,7 @@ async def _handle_staff_message(
             ],
             tools=tools,
             temperature=0.2,
-            max_tokens=300,
+            max_tokens=600,
         )
         response_message = completion.choices[0].message
 
@@ -2145,6 +2216,59 @@ async def _report_production_batch(
         f"OK: lote de {producto} (x{qty}, banda {banda_garantia}) registrado. Ya avisé a logística y mandé "
         f"el reporte a la CEO y Contraloría."
     )
+
+
+async def _register_habit(
+    http_client: httpx.AsyncClient,
+    created_by: str = None,
+    nombre: str = None,
+    descripcion: str = None,
+    url_video: str = None,
+    enviar_ahora: bool = False,
+) -> str:
+    nombre, descripcion, url_video = (nombre or "").strip(), (descripcion or "").strip(), (url_video or "").strip()
+    if not nombre or not descripcion or not url_video:
+        return "Necesito el nombre del hábito, su descripción y la URL del video para registrarlo."
+    if not re.fullmatch(r"https?://\S+", url_video):
+        return f"La URL del video no parece válida ('{url_video}'). Mándala completa, empezando con https://"
+
+    habit_id = storage.create_habit(nombre, descripcion, url_video, created_by)
+    logger.info("Hábito #%s '%s' registrado por %s.", habit_id, nombre, created_by)
+
+    if enviar_ahora:
+        today_str = datetime.now(TIMEZONE).date().isoformat()
+        sent_count = await broadcast_habit(
+            http_client, WHATSAPP_API_URL, WHATSAPP_TOKEN, storage.get_habit(habit_id), today_str
+        )
+        return (
+            f"OK: hábito #{habit_id} '{nombre}' registrado y enviado ahora a {sent_count} cliente(s) con plan "
+            f"activo. El envío automático de hoy ya no se repite."
+        )
+    return (
+        f"OK: hábito #{habit_id} '{nombre}' registrado. Entra a la rotación del envío diario de las "
+        f"{HABIT_HOUR:02d}:{HABIT_MINUTE:02d} y TEO ya puede sugerirlo en sus conversaciones."
+    )
+
+
+async def _list_habits(http_client: httpx.AsyncClient, **_ignored) -> str:
+    habits = storage.list_habits()
+    if not habits:
+        return "No hay hábitos activos registrados todavía."
+    lines = [
+        f"#{h['id']} {h['name']} — último envío: {h['last_sent_date'] or 'nunca'}\n{h['video_url']}"
+        for h in habits
+    ]
+    return "🌱 Hábitos activos:\n\n" + "\n\n".join(lines)
+
+
+async def _deactivate_habit(http_client: httpx.AsyncClient, id_habito=None, **_ignored) -> str:
+    try:
+        habit_id = int(id_habito)
+    except (TypeError, ValueError):
+        return "Dime el número del hábito que quieres desactivar (puedes pedirme la lista)."
+    if not storage.deactivate_habit(habit_id):
+        return f"No encontré un hábito activo con el número {habit_id}."
+    return f"OK: hábito #{habit_id} desactivado. Ya no se enviará ni se sugerirá a los clientes."
 
 
 async def _handle_payment_proof(
@@ -2372,10 +2496,14 @@ async def lifespan(app: FastAPI):
     app.state.executive_report_task = asyncio.create_task(
         run_executive_report_loop(app.state.http_client)
     )
+    app.state.habit_task = asyncio.create_task(
+        run_habit_loop(app.state.http_client, WHATSAPP_API_URL, WHATSAPP_TOKEN)
+    )
     logger.info("TEO iniciado correctamente. Modelo principal: %s (respaldo: %s)", PRIMARY_MODEL, FALLBACK_MODEL)
     yield
     app.state.scheduler_task.cancel()
     app.state.executive_report_task.cancel()
+    app.state.habit_task.cancel()
     await app.state.http_client.aclose()
 
 
@@ -2471,6 +2599,11 @@ async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> N
             return await _report_production_batch(http_client, reported_by=staff_phone, **kw)
         return _handler
 
+    def _habit_handler_for(staff_phone: str):
+        async def _handler(http_client, **kw):
+            return await _register_habit(http_client, created_by=staff_phone, **kw)
+        return _handler
+
     staff_routes = [
         (
             {_normalize_phone(n) for n in CONTROL_PHONE_NUMBERS},
@@ -2499,8 +2632,13 @@ async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> N
         (
             {_normalize_phone(MARKETING_PHONE_NUMBER)},
             STAFF_JACOB_PROMPT,
-            [REPORT_PRODUCTION_TOOL],
-            {"reportar_lote_produccion": _production_handler_for(sender_phone)},
+            [REPORT_PRODUCTION_TOOL, REGISTER_HABIT_TOOL, LIST_HABITS_TOOL, DEACTIVATE_HABIT_TOOL],
+            {
+                "reportar_lote_produccion": _production_handler_for(sender_phone),
+                "registrar_habito": _habit_handler_for(sender_phone),
+                "listar_habitos": _list_habits,
+                "desactivar_habito": _deactivate_habit,
+            },
         ),
         (
             {_normalize_phone(CEO_PHONE_NUMBER)},
@@ -2670,6 +2808,8 @@ async def _dispatch_tool_call(http_client: httpx.AsyncClient, sender_phone: str,
         return await _send_product_image(http_client, sender_phone, **args)
     if name == "obtener_detalle_producto":
         return await _get_product_detail(**args)
+    if name == "ver_habitos":
+        return await _get_habits_for_customer()
     return f"ERROR: función '{name}' desconocida."
 
 
@@ -2828,6 +2968,20 @@ async def _get_product_detail(producto: str = None, **_ignored) -> str:
         )
     canonical_name, full_text = match
     return f"OK: ficha técnica completa de {canonical_name}:\n\n{full_text}"
+
+
+async def _get_habits_for_customer(**_ignored) -> str:
+    habits = storage.list_habits()[:5]
+    if not habits:
+        return (
+            "OK: el equipo todavía no ha publicado hábitos con video. No inventes enlaces; puedes "
+            "sugerir un hábito sencillo en general y decirle que pronto le compartirás videos."
+        )
+    lines = [f"- {h['name']}: {h['description']} Video: {h['video_url']}" for h in habits]
+    return (
+        "OK: hábitos publicados por el equipo de I'AM (comparte el enlace del video tal cual, sin "
+        "modificarlo, y elige el que mejor encaje con lo que el cliente te ha contado):\n" + "\n".join(lines)
+    )
 
 
 async def _send_product_image(http_client: httpx.AsyncClient, sender_phone: str, producto: str = None, **_ignored) -> str:

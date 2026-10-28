@@ -12,6 +12,7 @@ DETAILS_DIR = Path(__file__).parent / "product_details"
 # no es necesario tener uno para los 30 productos.
 PRODUCT_DETAIL_FILES = {
     "Biotic": "biotic.txt",
+    "Fiber Balance": "fiber_balance.txt",
 }
 
 _NORMALIZED_DETAIL_INDEX = {_normalize(name): (name, filename) for name, filename in PRODUCT_DETAIL_FILES.items()}

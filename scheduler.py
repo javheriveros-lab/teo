@@ -7,7 +7,6 @@ from zoneinfo import ZoneInfo
 import httpx
 
 import storage
-from exercises import get_exercises_for_focus
 from plans import DAILY_TIPS, MICRO_METAS, REST_LABEL
 
 logger = logging.getLogger("teo.scheduler")
@@ -20,7 +19,6 @@ TEMPLATE_RECORDATORIO_DOSIS = "teo_recordatorio_dosis"
 TEMPLATE_EDUCACION_RECETA = "teo_educacion_receta"
 TEMPLATE_CHECKIN_NOCTURNO = "teo_checkin_nocturno"
 TEMPLATE_RESUMEN_SEMANAL = "teo_resumen_semanal"
-TEMPLATE_EJERCICIO = "teo_plan_ejercicio_v1"
 TEMPLATE_HABITO_DIARIO = "teo_habito_diario"
 
 HABIT_HOUR = 9  # 9am hora de CDMX — envío diario del hábito a todos los clientes con plan activo
@@ -44,28 +42,6 @@ def _text_payload(phone: str, template_name: str, params: list) -> dict:
             "name": template_name,
             "language": {"code": TEMPLATE_LANGUAGE},
             "components": [{"type": "body", "parameters": [{"type": "text", "text": p} for p in params]}],
-        },
-    }
-
-
-def _build_ejercicio_payload(phone: str, name: str, image_url: str, cue: str) -> dict:
-    return {
-        "messaging_product": "whatsapp",
-        "to": phone,
-        "type": "template",
-        "template": {
-            "name": TEMPLATE_EJERCICIO,
-            "language": {"code": TEMPLATE_LANGUAGE},
-            "components": [
-                {"type": "header", "parameters": [{"type": "image", "image": {"link": image_url}}]},
-                {
-                    "type": "body",
-                    "parameters": [
-                        {"type": "text", "text": name},
-                        {"type": "text", "text": cue},
-                    ],
-                },
-            ],
         },
     }
 
@@ -96,15 +72,7 @@ async def _handle_checkin_matutino(http_client, api_url, token, phone, content) 
     focus_text = "día de descanso, no toca entrenar" if is_rest else focus
 
     payload = _text_payload(phone, TEMPLATE_CHECKIN_MATUTINO, [name, meal_label, food, focus_text])
-    sent = await _send(http_client, api_url, token, payload, phone, "checkin_matutino")
-
-    if sent and not is_rest:
-        exercises = get_exercises_for_focus(focus)
-        for ex_name, image_url, cue in exercises:
-            ex_payload = _build_ejercicio_payload(phone, ex_name, image_url, cue)
-            await _send(http_client, api_url, token, ex_payload, phone, "ejercicio_foto")
-
-    return sent
+    return await _send(http_client, api_url, token, payload, phone, "checkin_matutino")
 
 
 async def _handle_recordatorio_dosis(http_client, api_url, token, phone) -> bool:
@@ -212,4 +180,66 @@ async def run_habit_loop(http_client: httpx.AsyncClient, api_url: str, token: st
                     await broadcast_habit(http_client, api_url, token, habit, today_str)
         except Exception:
             logger.exception("Error inesperado en el loop de hábitos diarios.")
+        await asyncio.sleep(CHECK_INTERVAL_SECONDS)
+
+
+# --- Seguimiento comercial (prospectos que aceptaron tips/promociones e interesados en el
+# negocio). Loop separado del de hábitos: no toca su rotación ni su marca de envío diario.
+TEMPLATE_SEGUIMIENTO = "teo_seguimiento"      # MARKETING: nombre, título, descripción, enlace/cierre
+TEMPLATE_VIDEO_NEGOCIO = "teo_video_negocio"  # MARKETING: nombre, título, descripción, enlace
+
+FOLLOWUP_WEEKDAYS = (1, 4)  # martes y viernes: máximo 2 mensajes por semana a cada prospecto
+FOLLOWUP_HOUR = 11
+BUSINESS_WEEKDAY = 3        # jueves: un video de negocio por semana
+BUSINESS_HOUR = 12
+FOLLOWUP_NO_LINK_TEXT = "Responde este mensaje si quieres saber más."
+
+
+def _followup_payload(phone: str, template_name: str, item: dict) -> dict:
+    name = _display_name(storage.get_customer(phone))
+    params = [
+        name,
+        _template_param(item["title"]),
+        _template_param(item["description"]),
+        item["url"] or FOLLOWUP_NO_LINK_TEXT,
+    ]
+    return _text_payload(phone, template_name, params)
+
+
+async def _send_followups(http_client, api_url, token, phones: list, sources: tuple, template_name: str) -> int:
+    sent_count = 0
+    for phone in phones:
+        item = storage.next_followup_item(phone, sources)
+        if not item:
+            continue
+        payload = _followup_payload(phone, template_name, item)
+        if await _send(http_client, api_url, token, payload, phone, f"seguimiento_{item['source']}"):
+            storage.log_followup(phone, item["source"], item["id"])
+            sent_count += 1
+    return sent_count
+
+
+async def run_followup_loop(http_client: httpx.AsyncClient, api_url: str, token: str) -> None:
+    logger.info("Loop de seguimiento comercial iniciado.")
+    done = set()  # (fecha, tipo) ya procesados en este proceso; la BD evita duplicar tras un redeploy
+    while True:
+        try:
+            now = datetime.now(TIMEZONE)
+            today_str = now.date().isoformat()
+            if now.weekday() in FOLLOWUP_WEEKDAYS and now.hour == FOLLOWUP_HOUR and (today_str, "prospectos") not in done:
+                done.add((today_str, "prospectos"))
+                count = await _send_followups(
+                    http_client, api_url, token, storage.get_followup_prospects(),
+                    ("habito", "promocion"), TEMPLATE_SEGUIMIENTO,
+                )
+                logger.info("Seguimiento a prospectos: %s mensaje(s) enviados.", count)
+            if now.weekday() == BUSINESS_WEEKDAY and now.hour == BUSINESS_HOUR and (today_str, "negocio") not in done:
+                done.add((today_str, "negocio"))
+                count = await _send_followups(
+                    http_client, api_url, token, storage.get_business_followup_list(),
+                    ("video_negocio",), TEMPLATE_VIDEO_NEGOCIO,
+                )
+                logger.info("Videos de negocio: %s mensaje(s) enviados.", count)
+        except Exception:
+            logger.exception("Error inesperado en el loop de seguimiento comercial.")
         await asyncio.sleep(CHECK_INTERVAL_SECONDS)

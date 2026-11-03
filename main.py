@@ -17,11 +17,14 @@ import plans
 import shipping
 import storage
 import vision
-from calendar_image import render_catalog_infographic, render_weekly_calendar
+from calendar_image import render_catalog_infographic, render_protocol_image, render_weekly_calendar
 from product_details import find_product_detail
-from product_images import find_product_image
-from exercises import get_exercises_for_focus
-from scheduler import HABIT_HOUR, HABIT_MINUTE, TIMEZONE, broadcast_habit, run_habit_loop, run_reminder_loop
+from product_images import _normalize, find_product_image
+from product_videos import find_videos
+from exercises import LEVELS, TRAINING_TYPES, TYPE_LABELS, YOUTUBE_NOTE, routine_summary
+from scheduler import (
+    HABIT_HOUR, HABIT_MINUTE, TIMEZONE, broadcast_habit, run_followup_loop, run_habit_loop, run_reminder_loop,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 logger = logging.getLogger("teo")
@@ -172,8 +175,8 @@ repetirla en cada mensaje, solo cuando el tema lo amerite: "Nota: Los productos 
 consumo es responsabilidad de quien lo usa y de quien lo recomienda. Los resultados de salud y económicos \
 varían según cada persona. Aliméntate sanamente."
 
-PAUSA DE MENSAJES: el cliente puede escribir "PAUSA" en cualquier momento para dejar de recibir recordatorios \
-automáticos, y "REANUDAR" para reactivarlos — esto se procesa fuera de ti, de forma automática. La primera vez \
+PAUSA DE MENSAJES: el cliente puede escribir "PAUSA" en cualquier momento para dejar de recibir mensajes \
+automáticos (recordatorios, tips, promociones y videos), y "REANUDAR" para reactivarlos — esto se procesa fuera de ti, de forma automática. La primera vez \
 que armes un plan calendarizado con recordatorios para alguien, menciónale brevemente que existe esta opción.
 
 ESCALAMIENTO A UN ASESOR HUMANO: si detectas una queja formal sobre un producto, un efecto adverso grave \
@@ -191,6 +194,28 @@ función `escalar_caso_clinico_alma` con un resumen del caso y preguntas concret
 cuanto recibas la respuesta técnica de Alma (te llegará como parte de la conversación), transmítesela al \
 cliente aplicando EXACTAMENTE su directriz — nunca la cambies, resumas de más, ni le agregues información \
 médica que ella no haya dado.
+
+MODO REACTIVO Y CONSULTIVO (aplica a toda la conversación, por encima de cualquier otra regla de venta):
+- Solo respondes cuando la persona te escribe; nunca inicias conversaciones por tu cuenta. Los mensajes automáticos \
+los envía el sistema, no tú, y solo a quien dio su consentimiento: (a) recordatorios del plan y hábito diario, \
+exclusivamente para clientes con compra confirmada que aceptaron recibirlos; (b) tips, hábitos y promociones (máximo \
+2 por semana) para prospectos que aceptaron recibirlos y dejaron de responder; (c) videos de negocio para quien \
+aceptó recibirlos. A nadie más le prometas mensajes.
+- Responde a lo que la persona pregunta o necesita, 100% personalizado a lo que te contó. Tu papel es sugerir, \
+orientar y guiar, no presionar.
+- Con quien todavía no muestra interés de compra: no insistas, no repitas llamados a comprar en cada mensaje y \
+no uses urgencia artificial. Un solo llamado a la acción amable después de tu recomendación es suficiente; si no \
+lo retoma, sigue ayudando con lo que pregunte.
+- Las funciones de venta (cotización, envío, pago) se activan solo cuando la persona expresa interés en comprar.
+
+RUTA COMPLETA DEL CLIENTE (síguela en orden; la nota "ESTADO DEL CLIENTE" del sistema te dice en qué paso va):
+1) Diagnóstico de necesidad → 2) Historial clínico rápido (alergias, condiciones, restricciones) → 3) Recomendación \
+multimedia (imagen oficial + video oficial si existe + información detallada) → 4) Precios e información de inmediato \
+y consentimiento para seguimiento → 5) Datos de pago y captura del depósito → 6) Verificación humana del pago (pausa) \
+→ 7) Pago confirmado: logística coordina el envío → 8) Le pides que te avise cuando tenga su producto → 9) Onboarding \
+y plan personalizado → 10) Recordatorios solo con su consentimiento → 11) Acompañamiento constante → 12) Propuesta \
+de negocio en el momento adecuado → 13) Entrenamiento de líder o lista de interesados → 14) Siempre disponible para \
+dudas y nuevos pedidos.
 
 FLUJO DE CONVERSACIÓN — LAS 4 REGLAS FUNDAMENTALES DE TEO:
 (Revisa siempre el historial antes de preguntar; nunca repitas preguntas que el cliente ya haya respondido)
@@ -211,10 +236,16 @@ cláusula legal fría o punitiva, sino como un consejo afectuoso y profesional d
 protocolo es un complemento para tu estilo de vida, y es ideal consultarlo siempre con tu médico de cabecera.", "Como coach responsable, \
 siempre te sugeriré acompañar cualquier protocolo de suplementación con la valoración de tu médico de confianza."). Esta recomendación \
 en el primer contacto es INNEGOCIABLE y debe ir SIEMPRE en el primer mensaje a cada cliente nuevo.
+- Diagnóstico de necesidad: en ese mismo primer mensaje (o en cuanto te diga su nombre), pregúntale amablemente qué \
+malestar tiene o qué busca mejorar. Si escribió preguntando directamente por un producto, respóndele (ver REGLA 3) y \
+después explora su necesidad.
 
-2. REGLA 2 — TRIAGE Y DOLENCIAS (Diagnóstico Funcional, Cercano y Empático):
-- Conversación orgánica y dosificada: Haz preguntas de forma fluida y conversacional (máximo 1 o 2 preguntas por mensaje, jamás un \
-formulario aburrido o interrogatorio clínico). Explora con empatía cuatro dimensiones clave:
+2. REGLA 2 — HISTORIAL CLÍNICO RÁPIDO (Alergias y Restricciones, antes de sugerir nada):
+- En cuanto te cuente su malestar, y ANTES de sugerir cualquier producto, haz preguntas clave y directas para descartar alergias, \
+condiciones médicas o restricciones: (1) alergias a alimentos o ingredientes; (2) diagnósticos o condiciones médicas y medicamentos que \
+tome; (3) embarazo o lactancia cuando aplique; y su edad. Agrúpalas en 1 o 2 mensajes cortos y cálidos, sin sonar a interrogatorio. Nunca \
+recomiendes nada antes de tener estas respuestas, salvo que el cliente decida no darlas.
+- Datos complementarios que puedes explorar con empatía (máximo 1 o 2 preguntas por mensaje):
    a. Edad: para entender su momento metabólico, etapa biológica y adaptar tu tono de comunicación (más fresco y dinámico con jóvenes; \
 más pausado, detallado y afectuoso con personas mayores). Si evade la pregunta una vez, no insistas más de una ocasión y continúa con \
 tono cercano y profesional.
@@ -244,17 +275,31 @@ de raíz...").
 un asesor humano si desea mayor personalización.
 
 3. REGLA 3 — CIERRE CONSULTIVO (Recomendación Persuasiva y Proceso de Compra):
-- En cuanto cuentes con el panorama de salud (edad, dolencias, energía y restricciones), recomienda con convicción y entusiasmo el protocolo \
-o combo correspondiente del catálogo oficial de I'AM (ver sección CATÁLOGO DE PROTOCOLOS/COMBOS abajo).
+- En cuanto cuentes con el panorama de salud (malestar, alergias, condiciones y restricciones), recomienda con convicción y entusiasmo el \
+protocolo o combo correspondiente del catálogo oficial de I'AM (ver sección CATÁLOGO DE PROTOCOLOS/COMBOS abajo).
+- Recomendación multimedia: en el mismo turno en que das tu recomendación, usa `presentar_recomendacion` con el protocolo y sus productos: le \
+envía la imagen oficial y te devuelve el video oficial si existe. Si el cliente preguntó por un producto específico, úsala solo con ese \
+producto. Si te devuelve un video, comparte el enlace junto con la información escrita; si no hay video, basta la imagen y la información \
+detallada de los productos. Esa información la das TÚ (catálogo, dosis, precios y fichas con `obtener_detalle_producto`): está PROHIBIDO \
+mandar al cliente con un asesor para consultas de información que ya tenemos.
+- Precios e información de inmediato: si muestra interés y pregunta precios o más información, dáselos en ese mismo mensaje, sin rodeos.
+- Seguimiento con consentimiento: después de darle precios o información, si todavía no decide, pregúntale una sola vez si le gustaría que \
+le compartas de vez en cuando tips y promociones por aquí, y guarda su respuesta con `registrar_consentimiento_seguimiento`. Nunca lo \
+agregues sin su sí. Si deja de responder, no insistas: el sistema le dará seguimiento solo si aceptó.
 - Conexión biológica causa-efecto: no te limites a listar nombres de productos; explica de forma clara, accesible y fascinante cómo actúan en \
 sinergia celular para resolver de raíz las dolencias y la falta de energía que te compartió (por qué ese protocolo, qué desinflama o desintoxica, \
 y cómo regenera, oxigena o nutre sus células).
+- Videos oficiales de I'AM: si el resultado de una función incluye un video oficial (YouTube o TikTok), compártelo de forma natural \
+dentro de tu explicación empática (ej. "Aquí te dejo un video donde lo explicamos con más detalle: <enlace>"). Para preguntas puntuales \
+de un producto o protocolo usa `buscar_video_oficial`. NUNCA escribas un enlace que no te haya devuelto una función. \
+Si el título del video empieza con "Testimonio:", preséntalo como la experiencia personal de esa persona ("aquí te comparto \
+la experiencia de alguien que..."), nunca como un resultado garantizado ni como prueba de que el producto cura algo.
 - Cierre consultivo persuasivo para guiarlo a la compra: presenta la recomendación con la seguridad de un coach de alto nivel que sabe que \
 este protocolo transformará su calidad de vida.
    * Informa el precio oficial con total transparencia y seguridad (consultando la lista de PRECIOS PÚBLICO de abajo), posicionando el valor \
 de la inversión en su salud.
    * Integra con naturalidad el disclaimer obligatorio ("Nota: Los productos I'AM no son medicamentos...").
-   * Haz un llamado a la acción persuasivo y amable que invite a dar el paso hacia la compra: "¿Te gustaría que coticemos tu envío para que \
+   * Haz UN llamado a la acción amable y sin presión que invite a dar el paso hacia la compra: "¿Te gustaría que coticemos tu envío para que \
 comiences a sentir la diferencia esta misma semana?", "¿Te preparo tu cotización de envío para enviártelo directo a tu puerta?".
    * Si el cliente menciona alergia a un ingrediente específico y dudas si el combo lo contiene, acláralo con honestidad y ofrece confirmarlo \
 con un asesor humano antes de la compra.
@@ -263,40 +308,50 @@ con un asesor humano antes de la compra.
 su ubicación exacta mediante el clip 📎 de WhatsApp (o dirección de entrega si es para otra persona), y en cuanto logística apruebe las opciones, \
 preséntaselas con calidez para que elija su paquetería preferida.
    * Etapa 2: Cuando elija su opción de envío, llama a `elegir_envio` para entregarle el texto exacto con los datos bancarios y el monto total a \
-pagar (producto + envío), solicitándole con amabilidad su comprobante de pago (foto o captura). Recuerda que la confirmación oficial del pago la \
-realiza el equipo humano de control.
+pagar (producto + envío), solicitándole con amabilidad la captura de pantalla de su depósito. Recuerda que la confirmación oficial del pago la \
+realiza el equipo humano de control. Si no manda la captura, no insistas.
 
-4. REGLA 4 — ENTREGABLES POST-VENTA (Estructuración Integral de Suplementación, Ejercicio y Alimentación):
-- Tras cerrar la venta (cuando el cliente realiza su pago, manda su comprobante o confirma formalmente la adquisición de su protocolo), pasa \
-de inmediato a la experiencia post-venta de alto valor para asegurar su adherencia, enamorarlo de la marca y garantizar sus resultados: \
-"¡Muchas felicidades por dar este gran paso hacia tu bienestar, [Nombre]! Mientras nuestro equipo de logística procesa y despacha tu pedido, \
-vamos a estructurar todo tu plan integral personalizado para que cuando recibas tu protocolo tengas todo listo desde el día uno: tu calendario \
-de suplementación con horarios ideales, tu rutina de ejercicio adaptada y tus pautas de alimentación estratégica."
+4. REGLA 4 — ONBOARDING Y PLAN PERSONALIZADO (Suplementación, Alimentación y Ejercicio):
+- Después de que el equipo confirma su pago, el sistema le pide al cliente que te avise cuando tenga su producto en sus manos. Esta regla \
+arranca SOLO cuando el cliente te confirma que ya lo recibió: usa `confirmar_producto_recibido`. Antes de eso (pago en verificación o \
+pedido en camino) no armes el plan.
+- Al confirmarlo, motívalo de forma muy personal (su nombre, lo que te contó de su malestar), recuérdale que lo vas a acompañar en cada paso de \
+su transformación, y ofrécele estructurar su plan personalizado: horario de suplementación, plan de alimentación y una rutina de ejercicios \
+adaptada.
 - Estructuración de los 3 entregables clave (pregunta de forma conversacional y amena, sin pedir formatos rígidos):
    a. Horarios de suplementación y alimentación: Pregúntale a qué hora suele desayunar, comer y cenar. Con esa información, determina tú como \
 especialista cuál de esas tres comidas es la idónea para tomar el suplemento (habitualmente el desayuno en ayunas o 30 min antes, según la ficha \
 técnica de abajo) y explícale que su recordatorio diario llegará fusionado con la sugerencia de comida para ese horario, optimizando su digestión \
 y absorción sin saturar su WhatsApp de mensajes.
-   b. Rutina de ejercicio personalizada: Pregúntale a qué hora prefiere dedicar 20-30 minutos para moverse o entrenar, y si desea algún día de \
-descanso adicional además del domingo (que ya es descanso por defecto). Explícale que la rutina sigue una división muscular inteligente (piernas y \
-glúteos, empuje, jalón, core y cardio ligero, full body funcional, movilidad y estiramiento activo) para permitir que los músculos se reparen sin \
-sobrecargarse, y que cada día de entrenamiento le llegará la foto real del ejercicio con su técnica explicada paso a paso. Recuerda siempre recomendar \
-consultar a su médico o entrenador antes de empezar una rutina física si tiene alguna lesión o condición previa.
+   b. Rutina y calendario de entrenamiento: antes de armarla, pregúntale activamente (máximo 1-2 preguntas por \
+mensaje): (1) qué nivel de dificultad desea: principiante, intermedio o avanzado; (2) qué tipo de entrenamiento \
+prefiere: en casa con peso corporal, gimnasio, calistenia, yoga o tai chi; (3) a qué hora prefiere entrenar; y (4) \
+si desea algún día de descanso adicional además del domingo (que ya es descanso por defecto). Nunca asumas el nivel \
+ni el tipo. Explícale que su rutina sigue una división inteligente por días para que el cuerpo se recupere sin \
+sobrecargarse, con el volumen (series, repeticiones o tiempos) adecuado a su nivel. En el calendario solo aparece el \
+nombre claro de cada ejercicio, y SIEMPRE agrégale esta nota: "Busca el nombre de cada ejercicio en YouTube para ver \
+su ejecución correcta." No envías imágenes ni fotos de ejercicios. Recuerda siempre recomendar consultar a su médico \
+o entrenador antes de empezar una rutina física si tiene alguna lesión o condición previa.
    c. Recomendaciones de alimentación y horarios: Explícale que cada sugerencia de comida está diseñada para acompañar su metabolismo y que los \
 horarios estarán perfectamente coordinados con su día a día.
 - Generación del calendario con `guardar_plan_semanal`:
-   * En cuanto tengas los tres datos (hora de suplemento + comida asociada, hora de entrenamiento y confirmación de días de descanso adicionales, \
-aunque sea 'ninguno'), llama de inmediato a la función `guardar_plan_semanal`.
+   * En cuanto tengas todos los datos (hora de suplemento + comida asociada, hora de entrenamiento, confirmación de días de descanso adicionales \
+aunque sea 'ninguno', nivel de dificultad y tipo de entrenamiento), llama de inmediato a la función `guardar_plan_semanal`.
    * No le anuncies al cliente que vas a llamar una función ni uses jerga técnica; hazlo de forma completamente transparente y natural.
    * SOLO confirma al cliente que su calendario quedó armado y enviado si la función `guardar_plan_semanal` responde con éxito. Si arroja un error \
 o falta un dato, pide con amabilidad justo el dato faltante o que aclare la hora.
    * Cuando haya éxito: NO vuelvas a listar los 7 días en texto aburrido (sería redundante con la imagen del calendario zen-futurista que ya se le \
 envió automáticamente a su WhatsApp). Confirma con calidez y entusiasmo que su calendario ya está listo en su chat, que el suplemento y las comidas \
-están sincronizados, y que el entrenamiento respeta sus días de descanso.
-   * Menciona amablemente que recibirá recordatorios en esos horarios para acompañarlo en su proceso, y que si en cualquier momento desea pausarlos \
-puede escribir "PAUSA", o "REANUDAR" cuando quiera reactivarlos.
-- (Nota de flexibilidad: Si un cliente interesado antes de pagar pregunta con curiosidad sobre cómo se tomaría o pide ver cómo sería su rutina, \
-puedes estructurarlo amablemente como argumento de valor para impulsarlo a concretar su compra).
+están sincronizados, y que el entrenamiento respeta sus días de descanso. Resume el enfoque de su rutina y el volumen que le toca según su nivel \
+(la función te devuelve la rutina completa), e incluye siempre la nota de buscar los ejercicios en YouTube.
+   * Recordatorios con consentimiento: si la función te lo indica, pregúntale si desea recibir recordatorios exactos en su celular para tomar \
+sus suplementos a la hora indicada, y guarda su respuesta con `activar_recordatorios`. Menciona PAUSA/REANUDAR solo si quedaron activos. Si la \
+compra aún no está confirmada, no prometas recordatorios.
+- Acompañamiento constante: en cada conversación con un cliente que ya tiene su producto, pregúntale cómo se ha sentido con su protocolo, \
+celebra sus avances y resuelve sus dudas. Sigue disponible para nuevos pedidos (mismo flujo de cotización).
+- (Nota de flexibilidad: si alguien que aún no ha comprado te pregunta cómo se tomaría o cómo sería su rutina, respóndele con gusto; si te pide \
+su calendario, sigue los mismos pasos (incluido preguntarle nivel y tipo de entrenamiento). Nunca le prometas recordatorios: esos solo existen \
+para clientes con compra confirmada).
 
 CONTEO DE PRODUCTOS: I'AM tiene actualmente 30 productos individuales en su catálogo (sin contar \
 los combos/protocolos, que son combinaciones de estos mismos productos). Si te preguntan cuántos \
@@ -312,10 +367,16 @@ de inmediato.
 Si en cambio pide ver la foto de UN producto específico (ej. "muéstrame el Bisxantone", "tienes \
 foto del Sheyck"), usa `mostrar_imagen_producto` con el nombre de ese producto — es distinta de \
 `mostrar_catalogo_visual`, que es solo la vista general por categorías.
-Si el cliente pregunta el detalle completo de un producto (ingrediente por ingrediente, o por qué \
-dos productos hacen sinergia juntos) más allá de lo que ya sabes de este catálogo, usa \
-`obtener_detalle_producto` con el nombre del producto antes de responder — no todos los productos \
-tienen ficha extendida todavía, y si no la hay, no inventes ingredientes ni mecanismos.
+INFORMACIÓN DE PRODUCTOS Y PROTOCOLOS (prioridad alta): cuando el cliente pregunte por un producto o \
+protocolo (qué es, para qué sirve, ingredientes, cómo funciona, cómo se toma, en qué combos va, \
+diferencias entre productos), respóndele TÚ con información precisa y detallada. Usa el catálogo, las \
+dosis y los precios de este prompt, y llama a `obtener_detalle_producto` con el nombre del producto \
+para tener su ficha técnica completa antes de responder. NUNCA mandes al cliente con un asesor por una \
+pregunta de producto que puedas responder con esa información. Deriva a un asesor solo en los casos de \
+escalamiento definidos arriba (queja, efecto adverso, reembolso, petición explícita de hablar con una \
+persona) o cuando, después de darle toda la información disponible, falte un dato puntual que no \
+tengas; en ese caso dile lo que sí sabes y ofrece confirmar solo ese dato. No inventes ingredientes ni \
+mecanismos que no estén en la ficha o en este prompt.
 
 CATÁLOGO DE PROTOCOLOS/COMBOS (usa esto para recomendar; no inventes protocolos que no estén aquí):
 Aviso de marca aplicable a todo el catálogo: estos productos no son medicamentos; su consumo es \
@@ -410,8 +471,8 @@ cómo mejorar aún más su protocolo, sin presionar.
 - La presentación de cada producto está confirmada por la unidad de su dosis en la lista de abajo (ej. \
 "cucharadas" = polvo o líquido concentrado para diluir, "cápsulas"/"capletas" = cápsula o capleta, \
 "tabletas" = tableta, atomizaciones = spray sublingual). Puedes decirla con confianza. Para cualquier producto \
-que NO aparezca en la lista de dosis, NUNCA inventes su forma de presentación: dilo abiertamente ("te lo \
-confirmo con un asesor") en vez de adivinar.
+que NO aparezca en la lista de dosis, revisa primero su ficha con `obtener_detalle_producto`; si tampoco ahí \
+viene, NUNCA inventes su forma de presentación: dilo abiertamente en vez de adivinar.
 - Para la dosis y el horario de toma, usa EXCLUSIVAMENTE la lista "DOSIS Y HORARIOS REALES POR PRODUCTO" de \
 abajo. Si el cliente pregunta por un producto que SÍ aparece en esa lista, dale el dato con confianza y \
 precisión. Si pregunta por un producto que NO aparece ahí, NUNCA inventes cantidad, miligramos ni frecuencia: \
@@ -539,9 +600,13 @@ señal, usa la función `plantar_semilla_negocio` y transmite el mensaje que te 
 sin modificarlo ni resumirlo. Si la función te dice que ya se había ofrecido antes, no repitas la invitación \
 salvo que la persona pregunte directamente por el tema.
 - Si la persona responde con interés, pregunta sobre "ganar dinero", "el negocio", "cómo funciona eso de \
-compartir", o escribe la palabra "COMPARTIR", usa `iniciar_curso_compartir` para arrancar el curso de 5 días \
-"Comparte tu Transformación" y entrega el contenido del día que te devuelva, tal cual (puedes adaptar solo el \
-saludo con su nombre).
+compartir", o escribe la palabra "COMPARTIR", usa `registrar_interes_negocio` con decision "acepta": arranca su \
+entrenamiento de líder (curso de 5 días "Comparte tu Transformación") y entrega el contenido del día que te devuelva, \
+tal cual (puedes adaptar solo el saludo con su nombre).
+- Si por ahora no acepta, pregúntale sin presión si le gustaría recibir de vez en cuando videos cortos sobre por qué \
+conviene emprender con I'AM, y usa `registrar_interes_negocio` con decision "mas_tarde" y su respuesta en \
+`acepta_videos`. Si no le interesa, usa decision "no" y no vuelvas a ofrecerlo salvo que pregunte. Si alguien de la \
+lista de interesados decide empezar después, retómalo con decision "acepta".
 - El curso avanza UN día a la vez, nunca todo junto ni por adelantado. Solo cuando la persona haya respondido \
 o enviado lo que se le pidió en el día actual (una respuesta de texto/audio/video, un borrador, o contarte \
 qué le respondió un amigo), usa `avanzar_curso_compartir` para pasar al siguiente día y entregar su contenido.
@@ -654,9 +719,11 @@ retipees de memoria.
 - Justo después, pide amablemente la foto o captura de su comprobante de pago. La ubicación ya la tienes de \
 la Etapa 1, no la vuelvas a pedir. El comprobante (imagen) se procesa automáticamente en cuanto lo manda, no \
 necesitas una tool para eso.
-- En cuanto el cliente comparta su comprobante de pago (o mientras se encuentra en revisión de control), felicítalo y \
-activa de inmediato los ENTREGABLES POST-VENTA (Regla 4 del Flujo de Conversación) para estructurar su calendario de \
-suplementación, rutina de ejercicio personalizada y recomendaciones de alimentación mientras logística prepara su paquete.
+- Cuando manda su captura, el sistema le pide que espere un momento y la reenvía al equipo de control. Desde ahí estás en \
+PAUSA respecto al pago hasta que el equipo lo confirme: no inventes verificaciones ni asegures nada, y si insiste, \
+pídele con calidez que espere un poco más porque la confirmación del depósito es una verificación humana. Cuando el \
+equipo confirma, el sistema le avisa al cliente, pasa su pedido a logística y le pide que te escriba en cuanto tenga su \
+producto en sus manos (REGLA 4).
 - REGLA INNEGOCIABLE: NUNCA le digas al cliente que su pago fue "verificado", "confirmado", o que su pedido \
 "va en camino" por tu propia cuenta. Eso solo lo puede autorizar un humano revisando la cuenta bancaria real \
 — tú solo puedes confirmarlo cuando un mensaje de sistema te lo indique explícitamente. Mientras tanto, dile \
@@ -731,11 +798,12 @@ PLAN_TOOL = {
         "name": "guardar_plan_semanal",
         "description": (
             "Guarda el plan de optimización mensual del cliente (recordatorio de suplemento+comida y "
-            "entrenamiento) y dispara el envío automático de la imagen del calendario semanal por WhatsApp. "
-            "Llama a esta función en cuanto tengas: la hora de la comida elegida para el suplemento, la hora "
-            "de entrenamiento, y la respuesta del cliente sobre días de descanso adicionales (aunque sea "
-            "'ninguno'). Extrae los datos de lo que el cliente haya dicho en cualquier formato o momento de "
-            "la conversación, no esperes una sintaxis especial."
+            "rutina de entrenamiento) y dispara el envío automático de la imagen del calendario semanal por "
+            "WhatsApp. Llama a esta función en cuanto tengas: la hora de la comida elegida para el suplemento, "
+            "la hora de entrenamiento, la respuesta sobre días de descanso adicionales (aunque sea 'ninguno'), "
+            "y el nivel y tipo de entrenamiento que el cliente te dijo. Nunca asumas el nivel ni el tipo: si "
+            "no te los ha dicho, pregúntaselos antes. Extrae los datos de lo que el cliente haya dicho en "
+            "cualquier formato o momento de la conversación, no esperes una sintaxis especial."
         ),
         "parameters": {
             "type": "object",
@@ -765,8 +833,24 @@ PLAN_TOOL = {
                     },
                     "description": "Días de descanso adicionales al domingo (lista vacía si no pidió ninguno).",
                 },
+                "nivel": {
+                    "type": "string",
+                    "enum": list(LEVELS),
+                    "description": "Nivel de dificultad que eligió el cliente.",
+                },
+                "tipo_entrenamiento": {
+                    "type": "string",
+                    "enum": list(TRAINING_TYPES),
+                    "description": (
+                        "Tipo de entrenamiento que prefiere: casa (en casa con peso corporal), gimnasio, "
+                        "calistenia, yoga o tai chi."
+                    ),
+                },
             },
-            "required": ["suplemento_hora", "comida_asociada", "entrenamiento_hora", "dias_descanso"],
+            "required": [
+                "suplemento_hora", "comida_asociada", "entrenamiento_hora", "dias_descanso", "nivel",
+                "tipo_entrenamiento",
+            ],
         },
     },
 }
@@ -1069,11 +1153,11 @@ PRODUCT_DETAIL_TOOL = {
     "function": {
         "name": "obtener_detalle_producto",
         "description": (
-            "Consulta la ficha técnica EXTENDIDA de un producto (ingrediente por ingrediente, "
-            "tips de sinergia con otros productos) cuando el cliente pregunta el detalle completo "
-            "de para qué sirve cada componente o por qué dos productos combinan bien. No todos "
-            "los productos tienen ficha extendida todavía — si no hay, responde con lo que ya "
-            "sabes del catálogo general, sin inventar."
+            "Consulta la ficha técnica completa de un producto (descripción, mecanismo, "
+            "ingrediente por ingrediente, beneficios, tips de sinergia). Úsala SIEMPRE que el "
+            "cliente pregunte por un producto (qué es, para qué sirve, ingredientes, cómo funciona, "
+            "diferencias con otro) y responde tú con esa información — no lo mandes con un asesor "
+            "por una pregunta de producto."
         ),
         "parameters": {
             "type": "object",
@@ -1081,6 +1165,31 @@ PRODUCT_DETAIL_TOOL = {
                 "producto": {"type": "string", "description": "Nombre del producto del que quieres el detalle completo."},
             },
             "required": ["producto"],
+        },
+    },
+}
+
+OFFICIAL_VIDEO_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "buscar_video_oficial",
+        "description": (
+            "Busca en la biblioteca de videos oficiales de I'AM (YouTube y TikTok) el video que explica un "
+            "protocolo, producto o malestar concreto. Úsala para preguntas puntuales (ej. '¿qué es el "
+            "Bisxantone?', '¿cómo funciona el protocolo para estreñimiento?'). Solo comparte enlaces que "
+            "esta función te devuelva."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "protocolo": {"type": "string", "description": "Nombre del protocolo/combo, si aplica."},
+                "productos": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Productos de los que se habla, si aplica.",
+                },
+                "malestar": {"type": "string", "description": "Malestar o necesidad del cliente, si aplica."},
+            },
         },
     },
 }
@@ -1096,6 +1205,98 @@ HABITS_TOOL = {
             "hábito que encaje con lo que te ha contado."
         ),
         "parameters": {"type": "object", "properties": {}},
+    },
+}
+
+RECOMMENDATION_MEDIA_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "presentar_recomendacion",
+        "description": (
+            "Envía al cliente la imagen oficial de tu recomendación (las fotos reales de los productos del "
+            "protocolo en una sola imagen, o la foto del producto si preguntó por uno específico) y te devuelve "
+            "el video oficial de YouTube/TikTok si existe. Úsala en el mismo turno en que das tu recomendación "
+            "(después del historial clínico rápido) o cuando el cliente pregunte por un producto específico."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "protocolo": {
+                    "type": "string",
+                    "description": "Nombre exacto del protocolo/combo recomendado; vacío si es un solo producto.",
+                },
+                "productos": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Productos recomendados (los del protocolo, o el producto por el que preguntó).",
+                },
+            },
+            "required": ["productos"],
+        },
+    },
+}
+
+FOLLOWUP_CONSENT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "registrar_consentimiento_seguimiento",
+        "description": (
+            "Guarda si el prospecto acepta que le compartas de vez en cuando tips, hábitos y promociones por "
+            "WhatsApp. Llámala con su respuesta después de preguntárselo."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {"acepta": {"type": "boolean", "description": "true si aceptó, false si no."}},
+            "required": ["acepta"],
+        },
+    },
+}
+
+PRODUCT_RECEIVED_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "confirmar_producto_recibido",
+        "description": "Registra que el cliente ya tiene su producto en sus manos (cuando te lo dice) y arranca el onboarding.",
+        "parameters": {"type": "object", "properties": {}},
+    },
+}
+
+REMINDERS_CONSENT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "activar_recordatorios",
+        "description": (
+            "Activa o desactiva los recordatorios automáticos de su plan (suplemento a la hora indicada, "
+            "check-ins y hábito diario) según la respuesta del cliente a si desea recibirlos."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {"acepta": {"type": "boolean", "description": "true si quiere recibirlos, false si no."}},
+            "required": ["acepta"],
+        },
+    },
+}
+
+BUSINESS_INTEREST_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "registrar_interes_negocio",
+        "description": (
+            "Registra la respuesta del cliente a la invitación a conocer el modelo de negocio I'AM: 'acepta' "
+            "arranca el entrenamiento de líder; 'mas_tarde' si por ahora no (indica si acepta recibir videos "
+            "cortos sobre el negocio); 'no' si no le interesa."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "decision": {"type": "string", "enum": ["acepta", "mas_tarde", "no"]},
+                "acepta_videos": {
+                    "type": "boolean",
+                    "description": "Solo para 'mas_tarde': true si aceptó recibir de vez en cuando videos del negocio.",
+                },
+            },
+            "required": ["decision"],
+        },
     },
 }
 
@@ -1115,6 +1316,12 @@ ALL_TOOLS = [
     PRODUCT_IMAGE_TOOL,
     PRODUCT_DETAIL_TOOL,
     HABITS_TOOL,
+    OFFICIAL_VIDEO_TOOL,
+    RECOMMENDATION_MEDIA_TOOL,
+    FOLLOWUP_CONSENT_TOOL,
+    PRODUCT_RECEIVED_TOOL,
+    REMINDERS_CONSENT_TOOL,
+    BUSINESS_INTEREST_TOOL,
 ]
 
 BUSINESS_SEED_MESSAGE = (
@@ -1261,6 +1468,7 @@ async def _start_share_course(sender_phone: str, confirmacion: bool = None) -> s
     nombre = customer.get("name") if customer else None
     codigo = _generate_referral_code(nombre)
     storage.upsert_customer(sender_phone, share_status="day1", referral_code=codigo)
+    storage.set_business_interest(sender_phone, "lider")
     logger.info("Curso 'Comparte tu Transformación' iniciado para %s (código %s)", sender_phone, codigo)
     content = SHARE_COURSE_DAYS[1].format(nombre=nombre or "")
     return (
@@ -1745,11 +1953,14 @@ async def _authorize_order(
     customer = storage.get_customer(matched_phone)
     name = customer.get("name") if customer else None
     saludo = f"{name}, " if name else ""
-    await send_whatsapp_message(
-        http_client, matched_phone,
-        f"{saludo}¡tu pago fue confirmado con éxito! 🎉 Tu pedido va en camino, tiempo estimado de entrega: "
-        f"{final_estimate}. Cualquier duda, aquí estoy.",
+    confirmation = (
+        f"{saludo}¡nuestro equipo ya confirmó tu pago! 🎉 Tu pedido pasó a logística para su envío, tiempo "
+        f"estimado de entrega: {final_estimate}. Por favor escríbeme en cuanto tengas tu producto en tus manos, "
+        f"para acompañarte desde el primer día. Cualquier duda, aquí estoy."
     )
+    _get_history(matched_phone).append({"role": "assistant", "content": confirmation})
+    storage.log_message(matched_phone, "assistant", confirmation)
+    await send_whatsapp_message(http_client, matched_phone, confirmation)
     return f"Pedido de {matched_phone} autorizado. Entrega estimada: {final_estimate}. Ya avisé al cliente y a logística."
 
 
@@ -1934,6 +2145,49 @@ REGISTER_HABIT_TOOL = {
     },
 }
 
+REGISTER_CONTENT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "registrar_contenido_seguimiento",
+        "description": (
+            "Registra una promoción (para prospectos en seguimiento) o un video de negocio (para interesados en "
+            "emprender con I'AM). Entra a la rotación de los envíos de seguimiento."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "tipo": {"type": "string", "enum": ["promocion", "video_negocio"]},
+                "titulo": {"type": "string", "description": "Título corto."},
+                "descripcion": {"type": "string", "description": "Texto tal cual lo dio Jacob."},
+                "url": {"type": "string", "description": "Enlace (http/https). Obligatorio en video_negocio."},
+            },
+            "required": ["tipo", "titulo", "descripcion"],
+        },
+    },
+}
+
+LIST_CONTENT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "listar_contenido_seguimiento",
+        "description": "Lista las promociones y videos de negocio activos, con su número (id).",
+        "parameters": {"type": "object", "properties": {}},
+    },
+}
+
+DEACTIVATE_CONTENT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "desactivar_contenido_seguimiento",
+        "description": "Saca una promoción o video de negocio de la rotación, por su número (id).",
+        "parameters": {
+            "type": "object",
+            "properties": {"id_contenido": {"type": "integer", "description": "Número (id) del contenido."}},
+            "required": ["id_contenido"],
+        },
+    },
+}
+
 LIST_HABITS_TOOL = {
     "type": "function",
     "function": {
@@ -1995,13 +2249,17 @@ la función: responde en texto pidiendo que lo incluya."""
 
 STAFF_JACOB_PROMPT = """Eres un asistente interno (NO de cara a clientes) que ayuda a Jacob Riveros, quien \
 tiene un rol doble en I'AM: Marketing e Inteligencia de Conversaciones, y también Jefe de Producción. Puedes \
-hacer 2 tipos de cosas:
+hacer 3 tipos de cosas:
 (1) Producción: cuando reporte un lote de producto terminado, llama a `reportar_lote_produccion` con el nombre \
 del producto, la cantidad del lote y la banda de garantía (código de seguridad del lote).
 (2) Hábitos diarios para clientes: registrar un nuevo hábito con `registrar_habito` (nombre, descripción y URL \
 del video; `enviar_ahora` en true solo si pide mandarlo ya/hoy), ver los hábitos activos con `listar_habitos`, \
 o sacar uno de la rotación con `desactivar_habito` (por su número). Conserva la descripción tal cual la \
 escribió, sin resumirla ni reinterpretarla.
+(3) Contenido de seguimiento: registrar una promoción para los prospectos en seguimiento o un video para los \
+interesados en el negocio con `registrar_contenido_seguimiento` (tipo, título, descripción y URL; la URL es \
+obligatoria en los videos de negocio), verlos con `listar_contenido_seguimiento`, o sacar uno con \
+`desactivar_contenido_seguimiento` (por su número). Conserva el texto tal cual lo escribió.
 Si falta algún dato obligatorio, NO llames a la función: responde en texto pidiendo el dato que falta."""
 
 
@@ -2250,6 +2508,48 @@ async def _register_habit(
     )
 
 
+async def _register_campaign_content(
+    http_client: httpx.AsyncClient,
+    created_by: str = None,
+    tipo: str = None,
+    titulo: str = None,
+    descripcion: str = None,
+    url: str = None,
+    **_ignored,
+) -> str:
+    titulo, descripcion, url = (titulo or "").strip(), (descripcion or "").strip(), (url or "").strip() or None
+    if tipo not in storage.CAMPAIGN_KINDS:
+        return "Dime si es una promoción o un video de negocio."
+    if not titulo or not descripcion:
+        return "Necesito el título y la descripción para registrarlo."
+    if tipo == "video_negocio" and not url:
+        return "Los videos de negocio necesitan su enlace (https://...)."
+    if url and not re.fullmatch(r"https?://\S+", url):
+        return f"La URL no parece válida ('{url}'). Mándala completa, empezando con https://"
+    content_id = storage.create_campaign_content(tipo, titulo, descripcion, url, created_by)
+    logger.info("Contenido de seguimiento #%s (%s) '%s' registrado por %s.", content_id, tipo, titulo, created_by)
+    destino = "los prospectos en seguimiento (martes y viernes)" if tipo == "promocion" else "los interesados en el negocio (jueves)"
+    return f"OK: {tipo.replace('_', ' ')} #{content_id} '{titulo}' registrado. Entra a la rotación de {destino}."
+
+
+async def _list_campaign_content(http_client: httpx.AsyncClient, **_ignored) -> str:
+    items = storage.list_campaign_content()
+    if not items:
+        return "No hay promociones ni videos de negocio activos."
+    lines = [f"#{c['id']} [{c['kind'].replace('_', ' ')}] {c['title']}" + (f"\n{c['url']}" if c["url"] else "") for c in items]
+    return "📣 Contenido de seguimiento activo:\n\n" + "\n\n".join(lines)
+
+
+async def _deactivate_campaign_content(http_client: httpx.AsyncClient, id_contenido=None, **_ignored) -> str:
+    try:
+        content_id = int(id_contenido)
+    except (TypeError, ValueError):
+        return "Dime el número del contenido que quieres desactivar (puedes pedirme la lista)."
+    if not storage.deactivate_campaign_content(content_id):
+        return f"No encontré contenido activo con el número {content_id}."
+    return f"OK: contenido #{content_id} desactivado."
+
+
 async def _list_habits(http_client: httpx.AsyncClient, **_ignored) -> str:
     habits = storage.list_habits()
     if not habits:
@@ -2297,9 +2597,12 @@ async def _handle_payment_proof(
     await _forward_order_to_control(http_client, updated_order)
 
     reply = (
-        "¡Gracias! Ya tengo tu comprobante. Tu pago está en revisión, en cuanto se confirme te aviso con la "
-        "fecha estimada de entrega."
+        "¡Gracias! Ya recibí tu comprobante 🙌 Dame un momento, por favor: lo estoy pasando a nuestro equipo para "
+        "que verifique tu depósito. En cuanto lo confirmen te aviso por aquí."
     )
+    history = _get_history(sender_phone)
+    history.append({"role": "user", "content": "[comprobante de pago]"})
+    history.append({"role": "assistant", "content": reply})
     storage.log_message(sender_phone, "assistant", reply)
     await send_whatsapp_message(http_client, sender_phone, reply)
 
@@ -2312,6 +2615,8 @@ async def _save_weekly_plan(
     comida_asociada: str = None,
     entrenamiento_hora: str = None,
     dias_descanso: list = None,
+    nivel: str = None,
+    tipo_entrenamiento: str = None,
 ) -> str:
     """Ejecuta lo que pide la tool `guardar_plan_semanal`. Devuelve un mensaje de resultado
     (éxito o error) que se le pasa de vuelta al modelo como resultado de la tool — así TEO
@@ -2327,6 +2632,16 @@ async def _save_weekly_plan(
 
     if comida_asociada not in ("desayuno", "comida", "cena"):
         return "ERROR: falta saber con cuál comida se toma el suplemento (desayuno, comida o cena)."
+
+    nivel = (nivel or "").strip().lower()
+    tipo_entrenamiento = (tipo_entrenamiento or "").strip().lower()
+    if nivel not in LEVELS:
+        return "ERROR: falta el nivel de dificultad. Pregunta al cliente si prefiere principiante, intermedio o avanzado."
+    if tipo_entrenamiento not in TRAINING_TYPES:
+        return (
+            "ERROR: falta el tipo de entrenamiento. Pregunta al cliente si prefiere en casa con peso corporal, "
+            "gimnasio, calistenia, yoga o tai chi."
+        )
 
     rest_days = set()
     for day_name in dias_descanso or []:
@@ -2346,8 +2661,9 @@ async def _save_weekly_plan(
             ("resumen_semanal", 19, 0, None),
         ],
     )
-    weekly_plan = plans.build_weekly_plan(rest_days)
+    weekly_plan = plans.build_weekly_plan(rest_days, tipo_entrenamiento, nivel)
     storage.set_daily_content(sender_phone, weekly_plan)
+    routine_label = f"Rutina: {TYPE_LABELS[tipo_entrenamiento]} · nivel {nivel}"
 
     await send_whatsapp_calendar_image(
         http_client,
@@ -2357,20 +2673,46 @@ async def _save_weekly_plan(
         sup_time=f"{sup_hour:02d}:{sup_minute:02d}",
         meal_label=comida_asociada,
         ent_time=f"{ent_hour:02d}:{ent_minute:02d}",
+        routine_label=routine_label,
+        footer_note=YOUTUBE_NOTE,
     )
 
     dias_str = ", ".join(plans.DAY_NAMES[d] for d in sorted(rest_days)) or "ninguno adicional (solo domingo)"
     logger.info(
-        "Plan guardado (tool call) para %s: suplemento %02d:%02d con %s, entrenamiento %02d:%02d, descanso extra: %s",
-        sender_phone, sup_hour, sup_minute, comida_asociada, ent_hour, ent_minute, dias_str,
+        "Plan guardado (tool call) para %s: suplemento %02d:%02d con %s, entrenamiento %02d:%02d (%s), descanso extra: %s",
+        sender_phone, sup_hour, sup_minute, comida_asociada, ent_hour, ent_minute, routine_label, dias_str,
     )
+    training_days = [(plans.DAY_NAMES[day], day) for day in range(6) if day not in rest_days]
+    # Los recordatorios quedan guardados, pero solo se activan con compra confirmada y el sí del
+    # cliente (activar_recordatorios); el scheduler además exige la compra en storage.get_due_reminders.
+    customer = storage.get_customer(sender_phone) or {}
+    has_purchase = storage.has_confirmed_purchase(sender_phone)
+    consented = has_purchase and customer.get("reminders_optin") == 1
+    storage.set_reminders_active(sender_phone, consented)
+    if consented:
+        reminders_text = (
+            "Ya había aceptado recordatorios: a partir de mañana recibirá su check-in matutino, recordatorio de "
+            "dosis, tip de educación/receta y check-in nocturno. Menciónale que puede escribir PAUSA en cualquier "
+            "momento para pausarlos, y REANUDAR para reactivarlos."
+        )
+    elif has_purchase:
+        reminders_text = (
+            "Sus recordatorios NO están activos todavía: pregúntale si desea recibir recordatorios exactos en su "
+            "celular para tomar sus suplementos a la hora indicada, y guarda su respuesta con `activar_recordatorios`."
+        )
+    else:
+        reminders_text = (
+            "Su compra aún no está confirmada, así que NO recibirá recordatorios automáticos todavía: se activan "
+            "solos en cuanto el equipo confirme su pago. No le prometas mensajes diarios antes de eso."
+        )
     return (
-        f"OK: plan guardado correctamente y la imagen del calendario semanal ya fue enviada por WhatsApp. "
-        f"Suplemento {sup_hour:02d}:{sup_minute:02d} junto con {comida_asociada}. Entrenamiento "
-        f"{ent_hour:02d}:{ent_minute:02d}. Días de descanso adicionales: {dias_str}. A partir de mañana "
-        f"recibirá su check-in matutino, recordatorio de dosis, tip de educación/receta y check-in nocturno "
-        f"automáticamente. Menciónale que puede escribir PAUSA en cualquier momento para pausar estos mensajes, "
-        f"y REANUDAR para reactivarlos."
+        f"OK: plan guardado correctamente y la imagen del calendario semanal ya fue enviada por WhatsApp "
+        f"(con solo los nombres de los ejercicios). Suplemento {sup_hour:02d}:{sup_minute:02d} junto con "
+        f"{comida_asociada}. Entrenamiento {ent_hour:02d}:{ent_minute:02d}. Días de descanso adicionales: "
+        f"{dias_str}. {reminders_text}\n\n"
+        f"Rutina completa para explicársela (no repitas los 7 días del calendario; resume el enfoque y el "
+        f"volumen de series/repeticiones o tiempos):\n{routine_summary(tipo_entrenamiento, nivel, training_days)}\n\n"
+        f"Incluye SIEMPRE en tu respuesta la nota: \"{YOUTUBE_NOTE}\""
     )
 
 
@@ -2499,11 +2841,15 @@ async def lifespan(app: FastAPI):
     app.state.habit_task = asyncio.create_task(
         run_habit_loop(app.state.http_client, WHATSAPP_API_URL, WHATSAPP_TOKEN)
     )
+    app.state.followup_task = asyncio.create_task(
+        run_followup_loop(app.state.http_client, WHATSAPP_API_URL, WHATSAPP_TOKEN)
+    )
     logger.info("TEO iniciado correctamente. Modelo principal: %s (respaldo: %s)", PRIMARY_MODEL, FALLBACK_MODEL)
     yield
     app.state.scheduler_task.cancel()
     app.state.executive_report_task.cancel()
     app.state.habit_task.cancel()
+    app.state.followup_task.cancel()
     await app.state.http_client.aclose()
 
 
@@ -2604,6 +2950,11 @@ async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> N
             return await _register_habit(http_client, created_by=staff_phone, **kw)
         return _handler
 
+    def _content_handler_for(staff_phone: str):
+        async def _handler(http_client, **kw):
+            return await _register_campaign_content(http_client, created_by=staff_phone, **kw)
+        return _handler
+
     staff_routes = [
         (
             {_normalize_phone(n) for n in CONTROL_PHONE_NUMBERS},
@@ -2632,12 +2983,18 @@ async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> N
         (
             {_normalize_phone(MARKETING_PHONE_NUMBER)},
             STAFF_JACOB_PROMPT,
-            [REPORT_PRODUCTION_TOOL, REGISTER_HABIT_TOOL, LIST_HABITS_TOOL, DEACTIVATE_HABIT_TOOL],
+            [
+                REPORT_PRODUCTION_TOOL, REGISTER_HABIT_TOOL, LIST_HABITS_TOOL, DEACTIVATE_HABIT_TOOL,
+                REGISTER_CONTENT_TOOL, LIST_CONTENT_TOOL, DEACTIVATE_CONTENT_TOOL,
+            ],
             {
                 "reportar_lote_produccion": _production_handler_for(sender_phone),
                 "registrar_habito": _habit_handler_for(sender_phone),
                 "listar_habitos": _list_habits,
                 "desactivar_habito": _deactivate_habit,
+                "registrar_contenido_seguimiento": _content_handler_for(sender_phone),
+                "listar_contenido_seguimiento": _list_campaign_content,
+                "desactivar_contenido_seguimiento": _deactivate_campaign_content,
             },
         ),
         (
@@ -2718,7 +3075,11 @@ async def get_ai_response(http_client: httpx.AsyncClient, sender_phone: str, use
     history.append({"role": "user", "content": user_text})
     storage.log_message(sender_phone, "user", user_text)
 
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}, *history]
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    stage_note = _customer_stage_note(sender_phone)
+    if stage_note:
+        messages.append({"role": "system", "content": stage_note})
+    messages += list(history)
 
     for attempt in (1, 2):
         try:
@@ -2810,6 +3171,18 @@ async def _dispatch_tool_call(http_client: httpx.AsyncClient, sender_phone: str,
         return await _get_product_detail(**args)
     if name == "ver_habitos":
         return await _get_habits_for_customer()
+    if name == "buscar_video_oficial":
+        return await _find_official_video(**args)
+    if name == "presentar_recomendacion":
+        return await _present_recommendation(http_client, sender_phone, **args)
+    if name == "registrar_consentimiento_seguimiento":
+        return await _register_followup_consent(sender_phone, **args)
+    if name == "confirmar_producto_recibido":
+        return await _confirm_product_received(sender_phone)
+    if name == "activar_recordatorios":
+        return await _set_reminders_consent(sender_phone, **args)
+    if name == "registrar_interes_negocio":
+        return await _register_business_interest(sender_phone, **args)
     return f"ERROR: función '{name}' desconocida."
 
 
@@ -2961,13 +3334,17 @@ async def _get_product_detail(producto: str = None, **_ignored) -> str:
     match = find_product_detail(producto)
     if not match:
         return (
-            f"OK: no tengo una ficha extendida guardada de '{producto}' todavía. Usa lo que ya "
-            f"sabes del catálogo general (dosis y beneficios principales) y, si el cliente pide "
-            f"más detalle del que tienes, ofrece conectarlo con un asesor — no inventes "
-            f"ingredientes ni mecanismos que no estén documentados."
+            f"OK: no hay ficha extendida de '{producto}'. Responde tú con todo lo que dice este "
+            f"prompt de ese producto (combos en los que participa, dosis, presentación y precio), "
+            f"sin mandarlo con un asesor por esto y sin inventar ingredientes ni mecanismos."
         )
     canonical_name, full_text = match
-    return f"OK: ficha técnica completa de {canonical_name}:\n\n{full_text}"
+    return (
+        f"OK: ficha técnica completa de {canonical_name}. Úsala para responder con detalle y "
+        f"precisión. Para dosis y horario manda la lista DOSIS Y HORARIOS del prompt si la ficha "
+        f"dice otra cosa. Si la ficha menciona enfermedades, preséntalo como apoyo o coadyuvante "
+        f"con el vocabulario aprobado, nunca como cura, tratamiento o prevención.\n\n{full_text}"
+    )
 
 
 async def _get_habits_for_customer(**_ignored) -> str:
@@ -3042,6 +3419,234 @@ async def _send_product_image(http_client: httpx.AsyncClient, sender_phone: str,
     return f"OK: imagen real de {canonical_name} enviada al cliente."
 
 
+async def _upload_and_send_image(
+    http_client: httpx.AsyncClient, to: str, image_bytes: bytes, filename: str, mime_type: str, caption: str
+) -> bool:
+    headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}"}
+    try:
+        upload_response = await http_client.post(
+            WHATSAPP_MEDIA_URL,
+            headers=headers,
+            data={"messaging_product": "whatsapp", "type": mime_type},
+            files={"file": (filename, image_bytes, mime_type)},
+        )
+        if upload_response.status_code >= 400:
+            logger.error("Error al subir la imagen %s (%s): %s", filename, upload_response.status_code, upload_response.text)
+            return False
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to,
+            "type": "image",
+            "image": {"id": upload_response.json().get("id"), "caption": caption},
+        }
+        send_response = await http_client.post(
+            WHATSAPP_API_URL, headers={**headers, "Content-Type": "application/json"}, json=payload
+        )
+        if send_response.status_code >= 400:
+            logger.error("Error al enviar la imagen %s (%s): %s", filename, send_response.status_code, send_response.text)
+            return False
+    except httpx.HTTPError:
+        logger.exception("Fallo de red al enviar la imagen %s.", filename)
+        return False
+    return True
+
+
+async def _present_recommendation(
+    http_client: httpx.AsyncClient, sender_phone: str, protocolo: str = None, productos: list = None, **_ignored
+) -> str:
+    """Paso 3 del flujo: imagen oficial de la recomendación + video oficial si existe. La
+    información escrita la redacta TEO con el prompt y las fichas, nunca derivando a un asesor."""
+    productos = [p for p in (productos or []) if p and str(p).strip()]
+    if not productos and not protocolo:
+        return "ERROR: dime qué protocolo o productos recomendaste."
+
+    if len(productos) == 1 and not protocolo:
+        image_result = await _send_product_image(http_client, sender_phone, producto=productos[0])
+    else:
+        matches = []
+        for producto in productos:
+            match = find_product_image(producto)
+            if match and match[0] not in {name for name, _path in matches}:
+                matches.append(match)
+        title = protocolo or ", ".join(name for name, _path in matches)
+        if not matches:
+            image_result = "OK: no hay fotos de estos productos en el banco de imágenes; sigue solo con texto."
+        else:
+            try:
+                image_bytes = render_protocol_image(title, matches)
+                sent = await _upload_and_send_image(
+                    http_client, sender_phone, image_bytes, "recomendacion.png", "image/png", f"{title} — I'AM"
+                )
+            except Exception:
+                logger.exception("No se pudo generar la imagen de la recomendación para %s.", sender_phone)
+                sent = False
+            image_result = (
+                f"OK: imagen oficial de '{title}' enviada al cliente." if sent
+                else "No pude enviar la imagen justo ahora; sigue con la recomendación en texto."
+            )
+
+    videos = find_videos(protocolo, *productos)
+    if videos:
+        video_text = (
+            "Video oficial para compartir en tu respuesta (el enlace tal cual, sin modificarlo):\n"
+            + _format_official_videos(videos)
+        )
+    else:
+        video_text = "No hay video oficial para este caso: no menciones ni inventes enlaces."
+    return (
+        f"{image_result}\n{video_text}\nAhora escribe la información detallada de los productos (para qué "
+        f"sirve cada uno, cómo se toma y su precio si lo pregunta), con lo que sabes del catálogo y, si necesitas "
+        f"más detalle, con `obtener_detalle_producto`. No lo mandes con un asesor para información que ya tienes."
+    )
+
+
+async def _register_followup_consent(sender_phone: str, acepta: bool = None, **_ignored) -> str:
+    if acepta is None:
+        return "ERROR: falta la respuesta del cliente (sí o no)."
+    storage.set_marketing_optin(sender_phone, bool(acepta))
+    if acepta:
+        return (
+            "OK: aceptó. Agradécele y dile que de vez en cuando le compartirás tips, hábitos y promociones, y que "
+            "puede escribir PAUSA en cualquier momento para dejar de recibirlos."
+        )
+    return "OK: no aceptó. Respeta su decisión sin insistir; sigue disponible cuando te escriba."
+
+
+async def _confirm_product_received(sender_phone: str) -> str:
+    order = storage.mark_order_received(sender_phone)
+    if not order:
+        latest = storage.get_latest_authorized_order(sender_phone)
+        if latest and latest.get("received_at"):
+            return "OK: su entrega ya estaba registrada. Sigue acompañándolo con su plan."
+        active = storage.get_active_order(sender_phone)
+        if active and active.get("status") == "en_revision":
+            return (
+                "ERROR: su pago todavía está en verificación humana, así que no hay envío confirmado. Pídele con "
+                "calidez que espere la confirmación del equipo."
+            )
+        return (
+            "ERROR: no encuentro un pedido confirmado a su nombre. Pregúntale con amabilidad si compró por otro "
+            "medio o con otro número, sin acusarlo de nada."
+        )
+    logger.info("Entrega confirmada por el cliente %s (orden %s).", sender_phone, order["id"])
+    return (
+        "OK: entrega registrada. Onboarding: felicítalo y motívalo de forma muy personal (usa su nombre y lo "
+        "que te contó de su malestar), recuérdale que lo vas a acompañar en cada paso de su transformación, y "
+        "ofrécele estructurar su plan personalizado: horario de suplementación, plan de alimentación y una "
+        "rutina de ejercicios adaptada. Si acepta, pregúntale primero su nivel de dificultad y su tipo de "
+        "entrenamiento preferido (en casa con peso corporal, gimnasio, calistenia, yoga o tai chi)."
+    )
+
+
+async def _set_reminders_consent(sender_phone: str, acepta: bool = None, **_ignored) -> str:
+    if acepta is None:
+        return "ERROR: falta la respuesta del cliente (sí o no)."
+    if not acepta:
+        storage.set_reminders_optin(sender_phone, False)
+        storage.set_reminders_active(sender_phone, False)
+        return "OK: no quiere recordatorios; quedan desactivados. Dile que puede pedírtelos cuando quiera."
+    if not storage.has_confirmed_purchase(sender_phone):
+        return (
+            "ERROR: los recordatorios solo se activan para clientes con compra confirmada. No se los prometas; "
+            "dile que se activan en cuanto se confirme su compra."
+        )
+    storage.set_reminders_optin(sender_phone, True)
+    if not storage.set_reminders_active(sender_phone, True):
+        return (
+            "OK: consentimiento guardado, pero aún no tiene plan. Arma su plan con `guardar_plan_semanal` y sus "
+            "recordatorios se activan en ese momento."
+        )
+    return (
+        "OK: recordatorios activados a partir de mañana (suplemento a su hora, check-ins y hábito del día). "
+        "Menciónale que puede escribir PAUSA para pausarlos y REANUDAR para reactivarlos."
+    )
+
+
+async def _register_business_interest(
+    sender_phone: str, decision: str = None, acepta_videos: bool = None, **_ignored
+) -> str:
+    if decision == "acepta":
+        return await _start_share_course(sender_phone, confirmacion=True)
+    if decision == "mas_tarde" and acepta_videos:
+        storage.set_business_interest(sender_phone, "interesado")
+        return (
+            "OK: quedó en la lista de interesados en el negocio. Dile, sin presión, que de vez en cuando le "
+            "compartirás videos cortos con razones para emprender con I'AM, y que cuando quiera empezar solo te "
+            "escriba. Puede escribir PAUSA para dejar de recibirlos."
+        )
+    if decision in ("mas_tarde", "no"):
+        storage.set_business_interest(sender_phone, "no")
+        return "OK: respeta su decisión sin insistir. Si algún día pregunta por el negocio, retómalo."
+    return "ERROR: falta la decisión del cliente (acepta, mas_tarde o no)."
+
+
+def _customer_stage_note(sender_phone: str):
+    """Estado del cliente en el embudo (desde la BD) para que TEO siga el paso correcto aunque la
+    memoria de la conversación se haya reiniciado."""
+    notes = []
+    order = storage.get_active_order(sender_phone)
+    latest = storage.get_latest_authorized_order(sender_phone)
+    customer = storage.get_customer(sender_phone) or {}
+
+    if order and order.get("status") == "en_revision":
+        notes.append(
+            "Ya envió su comprobante y el pago está EN VERIFICACIÓN HUMANA por el equipo de control. Estás en "
+            "pausa respecto al pago: no confirmes, no asegures ni insinúes que el pago está bien, no des fecha de "
+            "entrega y no arranques su plan. Si pregunta o insiste, pídele con calidez que espere un poco más, "
+            "porque la confirmación del depósito la hace una persona del equipo. Sí puedes resolver dudas de producto."
+        )
+    elif order and order.get("status") == "pendiente_pago":
+        notes.append(
+            "Ya tiene los datos de pago. Si decide pagar, pídele amablemente la captura de su depósito; no "
+            "insistas si no responde."
+        )
+    elif latest and not latest.get("received_at"):
+        notes.append(
+            "Su pago ya fue confirmado por el equipo y su pedido está en camino. Si te dice que ya tiene su "
+            "producto, usa `confirmar_producto_recibido`; si no, recuérdale que te escriba en cuanto lo tenga en "
+            "sus manos."
+        )
+    elif latest:
+        notes.append(
+            "Cliente activo con su producto en mano: acompáñalo, pregúntale cómo se ha sentido con su protocolo y "
+            "resuelve sus dudas. Si quiere un nuevo pedido, sigue el mismo flujo de cotización."
+        )
+        if customer.get("reminders_optin") is None:
+            notes.append(
+                "Aún no le has preguntado si quiere recordatorios: cuando ya tenga su plan, pregúntale si desea "
+                "recibir recordatorios exactos en su celular para tomar sus suplementos a la hora indicada."
+            )
+    elif customer.get("marketing_optin") is None:
+        notes.append(
+            "Es un prospecto. Cuando ya le hayas dado precios o información y muestre interés, pregúntale una sola "
+            "vez si quiere que le compartas de vez en cuando tips y promociones por aquí, y guarda su respuesta "
+            "con `registrar_consentimiento_seguimiento`."
+        )
+
+    if customer.get("business_interest") == "interesado":
+        notes.append(
+            "Está en la lista de interesados en el negocio: si dice que quiere empezar, usa "
+            "`registrar_interes_negocio` con decision 'acepta' para iniciar su entrenamiento de líder."
+        )
+    if not notes:
+        return None
+    return "ESTADO DEL CLIENTE (del sistema, no lo menciones tal cual):\n- " + "\n- ".join(notes)
+
+
+def _format_official_videos(videos: list) -> str:
+    return "\n".join(f"- {v['titulo']} ({v['plataforma']}): {v['url']}" for v in videos)
+
+
+async def _find_official_video(protocolo: str = None, productos: list = None, malestar: str = None, **_ignored) -> str:
+    videos = find_videos(protocolo, *(productos or []), malestar)
+    if not videos:
+        return "OK: no hay video oficial para este caso. No inventes enlaces; explica en texto."
+    return (
+        "OK: videos oficiales de I'AM para este caso (comparte el enlace tal cual, sin modificarlo, de forma "
+        "natural dentro de tu explicación):\n" + _format_official_videos(videos)
+    )
+
+
 async def _download_whatsapp_media(http_client: httpx.AsyncClient, media_id: str):
     """Descarga un archivo de medios de WhatsApp (video/imagen) a partir de su media id."""
     headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}"}
@@ -3065,11 +3670,9 @@ async def _handle_exercise_video(http_client: httpx.AsyncClient, sender_phone: s
     try:
         now = datetime.now(TIMEZONE)
         content = storage.get_daily_content(sender_phone, now.weekday())
-        exercises_today = get_exercises_for_focus(content["training_focus"]) if content else []
-        if exercises_today:
-            context = "Hoy, según su plan, le tocaba practicar: " + "; ".join(
-                f"{name} ({cue})" for name, _url, cue in exercises_today
-            )
+        training_today = content["training_focus"] if content else None
+        if training_today and training_today != plans.REST_LABEL:
+            context = f"Hoy, según su plan, le tocaba practicar: {training_today}."
         else:
             context = "No hay información de qué ejercicio específico debía practicar hoy."
 
@@ -3113,9 +3716,12 @@ async def _handle_pause_command(http_client: httpx.AsyncClient, sender_phone: st
     storage.log_message(sender_phone, "user", command.upper())
 
     if paused:
-        reply = "Listo, pausé tus recordatorios automáticos. Escribe REANUDAR cuando quieras que los retome."
+        reply = (
+            "Listo, pausé tus mensajes automáticos (recordatorios, tips y promociones). Escribe REANUDAR cuando "
+            "quieras que los retome."
+        )
     else:
-        reply = "Listo, reactivé tus recordatorios automáticos."
+        reply = "Listo, reactivé tus mensajes automáticos."
 
     logger.info("%s procesó %s para %s.", "PAUSA" if paused else "REANUDAR", command.upper(), sender_phone)
     storage.log_message(sender_phone, "assistant", reply)

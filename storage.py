@@ -207,6 +207,38 @@ def init_db() -> None:
             )
             """
         )
+        # Embudo de venta: consentimiento para tips/promociones (NULL = no se ha preguntado),
+        # consentimiento para recordatorios del plan, interés en el negocio y entrega recibida.
+        _ensure_column(conn, "customers", "marketing_optin", "marketing_optin INTEGER")
+        _ensure_column(conn, "customers", "reminders_optin", "reminders_optin INTEGER")
+        _ensure_column(conn, "customers", "business_interest", "business_interest TEXT")
+        _ensure_column(conn, "orders", "received_at", "received_at TEXT")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS campaign_content (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                kind TEXT NOT NULL CHECK (kind IN ('promocion', 'video_negocio')),
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                url TEXT,
+                created_by TEXT,
+                active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS followup_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                phone TEXT NOT NULL,
+                source TEXT NOT NULL CHECK (source IN ('habito', 'promocion', 'video_negocio')),
+                item_id INTEGER NOT NULL,
+                sent_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_followup_log_phone ON followup_log (phone, id)")
 
 
 def upsert_customer(
@@ -296,6 +328,40 @@ def set_reminders(phone: str, reminders: list) -> None:
         )
 
 
+def set_reminders_active(phone: str, active: bool) -> int:
+    """Activa/desactiva los recordatorios ya guardados del cliente. Devuelve cuántos había."""
+    with _connection() as conn:
+        cursor = conn.execute("UPDATE reminders SET active = ? WHERE phone = ?", (int(active), phone))
+        return cursor.rowcount
+
+
+def _set_customer_field(phone: str, column: str, value) -> None:
+    with _connection() as conn:
+        existing = conn.execute("SELECT phone FROM customers WHERE phone = ?", (phone,)).fetchone()
+        if existing:
+            conn.execute(f"UPDATE customers SET {column} = ? WHERE phone = ?", (value, phone))
+        else:
+            conn.execute(f"INSERT INTO customers (phone, {column}) VALUES (?, ?)", (phone, value))
+
+
+def set_marketing_optin(phone: str, accepted: bool) -> None:
+    _set_customer_field(phone, "marketing_optin", int(accepted))
+
+
+def set_reminders_optin(phone: str, accepted: bool) -> None:
+    _set_customer_field(phone, "reminders_optin", int(accepted))
+
+
+BUSINESS_INTEREST_VALUES = ("interesado", "no", "lider")
+
+
+def set_business_interest(phone: str, value: str) -> None:
+    """'interesado' = no aceptó todavía pero quiere recibir videos de negocio; 'no' = no le
+    interesa; 'lider' = arrancó el entrenamiento de líder (curso Comparte tu Transformación)."""
+    assert value in BUSINESS_INTEREST_VALUES, value
+    _set_customer_field(phone, "business_interest", value)
+
+
 def set_daily_content(phone: str, rows: list) -> None:
     """rows: lista de (day_of_week, food_suggestion, training_focus). Reemplaza el plan semanal previo."""
     with _connection() as conn:
@@ -315,15 +381,29 @@ def get_daily_content(phone: str, day_of_week: int):
         return dict(row) if row else None
 
 
+# TEO solo inicia mensajes (recordatorios, hábito diario) con quien ya concretó una compra:
+# una orden autorizada por el equipo de control. A los prospectos nunca les escribe primero.
+_HAS_PURCHASE_SQL = "EXISTS (SELECT 1 FROM orders o WHERE o.phone = r.phone AND o.status = 'autorizado')"
+
+
+def has_confirmed_purchase(phone: str) -> bool:
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM orders WHERE phone = ? AND status = 'autorizado' LIMIT 1", (phone,)
+        ).fetchone()
+        return row is not None
+
+
 def get_due_reminders(hour: int, minute: int, today_str: str) -> list:
     with _connection() as conn:
         rows = conn.execute(
-            """
+            f"""
             SELECT r.id, r.phone, r.kind, r.meal_label FROM reminders r
             LEFT JOIN customers c ON c.phone = r.phone
             WHERE r.active = 1 AND r.hour = ? AND r.minute = ?
               AND (r.last_sent_date IS NULL OR r.last_sent_date != ?)
               AND COALESCE(c.paused, 0) = 0
+              AND {_HAS_PURCHASE_SQL}
             """,
             (hour, minute, today_str),
         ).fetchall()
@@ -544,6 +624,30 @@ def authorize_order(phone: str, delivery_estimate: str = None) -> dict:
             "WHERE id = ?",
             (final_estimate, row["id"]),
         )
+        updated = conn.execute("SELECT * FROM orders WHERE id = ?", (row["id"],)).fetchone()
+        return dict(updated)
+
+
+def get_latest_authorized_order(phone: str):
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM orders WHERE phone = ? AND status = 'autorizado' ORDER BY id DESC LIMIT 1", (phone,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def mark_order_received(phone: str):
+    """Marca como recibido el último pedido autorizado del cliente. Devuelve la orden, o None
+    si no tiene un pedido autorizado pendiente de recibir."""
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT id FROM orders WHERE phone = ? AND status = 'autorizado' AND received_at IS NULL "
+            "ORDER BY id DESC LIMIT 1",
+            (phone,),
+        ).fetchone()
+        if not row:
+            return None
+        conn.execute("UPDATE orders SET received_at = CURRENT_TIMESTAMP WHERE id = ?", (row["id"],))
         updated = conn.execute("SELECT * FROM orders WHERE id = ?", (row["id"],)).fetchone()
         return dict(updated)
 
@@ -841,14 +945,132 @@ def habit_sent_on(date_str: str) -> bool:
 
 
 def get_habit_recipients() -> list:
-    """Clientes que aceptaron su plan calendarizado (tienen recordatorios activos) y no
-    escribieron PAUSA — son los únicos que ya optaron por recibir mensajes diarios de TEO."""
+    """Clientes con compra confirmada que aceptaron su plan calendarizado (tienen recordatorios
+    activos) y no escribieron PAUSA — son los únicos que ya optaron por recibir mensajes diarios
+    de TEO."""
     with _connection() as conn:
         rows = conn.execute(
-            """
+            f"""
             SELECT DISTINCT r.phone FROM reminders r
             LEFT JOIN customers c ON c.phone = r.phone
             WHERE r.active = 1 AND COALESCE(c.paused, 0) = 0
+              AND {_HAS_PURCHASE_SQL}
             """
         ).fetchall()
         return [row["phone"] for row in rows]
+
+
+CAMPAIGN_KINDS = ("promocion", "video_negocio")
+
+
+def create_campaign_content(kind: str, title: str, description: str, url: str = None, created_by: str = None) -> int:
+    assert kind in CAMPAIGN_KINDS, kind
+    with _connection() as conn:
+        cursor = conn.execute(
+            "INSERT INTO campaign_content (kind, title, description, url, created_by) VALUES (?, ?, ?, ?, ?)",
+            (kind, title, description, url, created_by),
+        )
+        return cursor.lastrowid
+
+
+def list_campaign_content(kind: str = None) -> list:
+    where, params = "WHERE active = 1", ()
+    if kind:
+        where, params = "WHERE active = 1 AND kind = ?", (kind,)
+    with _connection() as conn:
+        rows = conn.execute(f"SELECT * FROM campaign_content {where} ORDER BY id ASC", params).fetchall()
+        return [dict(row) for row in rows]
+
+
+def deactivate_campaign_content(content_id: int) -> bool:
+    with _connection() as conn:
+        cursor = conn.execute("UPDATE campaign_content SET active = 0 WHERE id = ? AND active = 1", (content_id,))
+        return cursor.rowcount > 0
+
+
+FOLLOWUP_SILENCE = "-1 day"      # un prospecto entra a seguimiento tras 24 h sin responder
+FOLLOWUP_MAX_AGE = "-60 days"    # y deja de recibir seguimiento si lleva 60 días sin escribir
+FOLLOWUP_MIN_GAP = "-2 days"     # nunca más de un mensaje de seguimiento cada 2 días
+
+
+def get_followup_prospects() -> list:
+    """Lista de seguimiento comercial: prospectos (sin compra confirmada ni pago en revisión)
+    que aceptaron recibir tips/promociones, no escribieron PAUSA y llevan más de 24 h sin
+    responder — incluye a quien recibió datos de pago y nunca mandó su comprobante."""
+    with _connection() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT c.phone FROM customers c
+            WHERE c.marketing_optin = 1 AND COALESCE(c.paused, 0) = 0
+              AND NOT EXISTS (
+                  SELECT 1 FROM orders o WHERE o.phone = c.phone AND o.status IN ('autorizado', 'en_revision')
+              )
+              AND (SELECT MAX(m.created_at) FROM conversations m WHERE m.phone = c.phone AND m.role = 'user')
+                  BETWEEN datetime('now', '{FOLLOWUP_MAX_AGE}') AND datetime('now', '{FOLLOWUP_SILENCE}')
+              AND NOT EXISTS (
+                  SELECT 1 FROM followup_log f WHERE f.phone = c.phone AND f.source IN ('habito', 'promocion')
+                    AND f.sent_at > datetime('now', '{FOLLOWUP_MIN_GAP}')
+              )
+            """
+        ).fetchall()
+        return [row["phone"] for row in rows]
+
+
+def get_business_followup_list() -> list:
+    """Interesados en el negocio que no arrancaron todavía y aceptaron recibir videos: uno por
+    semana como máximo."""
+    with _connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT c.phone FROM customers c
+            WHERE c.business_interest = 'interesado' AND COALESCE(c.paused, 0) = 0
+              AND NOT EXISTS (
+                  SELECT 1 FROM followup_log f WHERE f.phone = c.phone AND f.source = 'video_negocio'
+                    AND f.sent_at > datetime('now', '-6 days')
+              )
+            """
+        ).fetchall()
+        return [row["phone"] for row in rows]
+
+
+def next_followup_item(phone: str, sources: tuple):
+    """Siguiente contenido para este teléfono entre `sources` ('habito', 'promocion',
+    'video_negocio'): primero lo que nunca le ha llegado (alternando de fuente respecto al último
+    envío), y si ya recibió todo, lo que lleva más tiempo sin recibir. Lee los hábitos sin
+    modificarlos (no toca last_sent_date, que es de la rotación diaria de los compradores)."""
+    items = []
+    if "habito" in sources:
+        items += [
+            {"source": "habito", "id": h["id"], "title": h["name"], "description": h["description"], "url": h["video_url"]}
+            for h in sorted(list_habits(), key=lambda h: h["id"])
+        ]
+    for kind in CAMPAIGN_KINDS:
+        if kind in sources:
+            items += [
+                {"source": kind, "id": c["id"], "title": c["title"], "description": c["description"], "url": c["url"]}
+                for c in list_campaign_content(kind)
+            ]
+    if not items:
+        return None
+
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT source, item_id, MAX(id) AS last_id FROM followup_log WHERE phone = ? GROUP BY source, item_id",
+            (phone,),
+        ).fetchall()
+        last = conn.execute(
+            "SELECT source FROM followup_log WHERE phone = ? ORDER BY id DESC LIMIT 1", (phone,)
+        ).fetchone()
+    sent = {(row["source"], row["item_id"]): row["last_id"] for row in rows}
+    last_source = last["source"] if last else None
+
+    unsent = [item for item in items if (item["source"], item["id"]) not in sent]
+    if unsent:
+        other_source = [item for item in unsent if item["source"] != last_source]
+        return (other_source or unsent)[0]
+    return min(items, key=lambda item: sent[(item["source"], item["id"])])
+
+
+def log_followup(phone: str, source: str, item_id: int) -> None:
+    with _connection() as conn:
+        conn.execute("INSERT INTO followup_log (phone, source, item_id) VALUES (?, ?, ?)", (phone, source, item_id))

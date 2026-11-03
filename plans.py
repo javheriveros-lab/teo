@@ -1,5 +1,7 @@
 """Generación de la rutina semanal estándar (entrenamiento + sugerencias de comida)."""
 
+from exercises import get_session
+
 DAY_NAMES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
 DAY_NAME_TO_INDEX = {
@@ -13,17 +15,6 @@ DAY_NAME_TO_INDEX = {
     "sábado": 5,
     "domingo": 6,
 }
-
-# División estándar de grupos musculares; Domingo es descanso por defecto.
-DEFAULT_TRAINING_SPLIT = [
-    "piernas y glúteos",
-    "pecho y brazos (empuje)",
-    "espalda y hombros (jalón)",
-    "core y cardio ligero",
-    "full body funcional",
-    "movilidad y estiramiento activo",
-    "DESCANSO",
-]
 
 REST_LABEL = "DESCANSO"
 
@@ -70,14 +61,15 @@ def parse_rest_days(text: str) -> set:
     return days
 
 
-def build_weekly_plan(rest_days: set) -> list:
-    """Devuelve 7 tuplas (day_of_week, food_suggestion, training_focus)."""
+def build_weekly_plan(rest_days: set, tipo: str, nivel: str) -> list:
+    """Devuelve 7 tuplas (day_of_week, food_suggestion, training). training son solo los nombres
+    de los ejercicios de esa sesión (Lunes=sesión 0 ... Sábado=sesión 5); Domingo es descanso."""
     plan = []
     for day_index in range(7):
         food = FOOD_SUGGESTIONS[day_index]
-        if day_index in rest_days:
+        if day_index in rest_days or day_index == 6:
             training = REST_LABEL
         else:
-            training = DEFAULT_TRAINING_SPLIT[day_index]
+            training = ", ".join(get_session(tipo, nivel, day_index)[1])
         plan.append((day_index, food, training))
     return plan

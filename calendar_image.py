@@ -97,14 +97,13 @@ def render_weekly_calendar(
     meal_label: str,
     ent_time: str,
     weekly_plan: list,
+    routine_label: str = "",
+    footer_note: str = "",
 ) -> bytes:
-    """weekly_plan: lista de 7 tuplas (day_of_week, food_suggestion, training_focus),
-    en orden Lunes(0)..Domingo(6). Devuelve bytes PNG listos para subir a WhatsApp."""
+    """weekly_plan: lista de 7 tuplas (day_of_week, food_suggestion, training), en orden
+    Lunes(0)..Domingo(6); training son los nombres de los ejercicios del día. Devuelve bytes PNG
+    listos para subir a WhatsApp."""
     day_names = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-
-    height = HEADER_H + 66 + ROW_H * 7 + MARGIN
-    img = Image.new("RGB", (WIDTH, height), COLOR_BG)
-    draw = ImageDraw.Draw(img)
 
     title_font = _font(28, bold=False)
     subtitle_font = _font(17)
@@ -112,6 +111,31 @@ def render_weekly_calendar(
     label_font = _font(17, bold=True)
     body_font = _font(17)
     muted_font = _font(16)
+
+    # Cada fila crece con la lista de ejercicios del día (uno por línea, sin recortarla) y con la
+    # comida sugerida, así que se mide antes de crear la imagen.
+    measure = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+    ordered = sorted(weekly_plan, key=lambda row: row[0])
+    training_lines, food_lines = {}, {}
+    for day_index, food, training in ordered:
+        if training.upper() == "DESCANSO":
+            training_lines[day_index], food_lines[day_index] = ["— descanso —"], []
+            continue
+        lines = []
+        for exercise in training.split(", "):
+            wrapped = _wrap(measure, exercise, body_font, COL_TRAIN_W - 34)
+            lines += [f"•  {wrapped[0]}"] + [f"    {part}" for part in wrapped[1:]]
+        training_lines[day_index] = lines
+        food_lines[day_index] = _wrap(measure, food, body_font, COL_FOOD_W - 16)
+    row_heights = {
+        day_index: max(ROW_H, 20 + max(len(training_lines[day_index]), len(food_lines[day_index])) * 22)
+        for day_index in training_lines
+    }
+    footer_h = 44 if footer_note else 0
+
+    height = HEADER_H + 66 + sum(row_heights.values()) + footer_h + MARGIN
+    img = Image.new("RGB", (WIDTH, height), COLOR_BG)
+    draw = ImageDraw.Draw(img)
 
     # Encabezado: carbón sobrio, tipografía ligera, sin franjas de color duras.
     draw.rectangle([0, 0, WIDTH, HEADER_H], fill=COLOR_HEADER_BG)
@@ -123,6 +147,8 @@ def render_weekly_calendar(
         font=subtitle_font,
         fill=COLOR_HEADER_TEXT,
     )
+    if routine_label:
+        draw.text((MARGIN, 128), routine_label, font=muted_font, fill=COLOR_ACCENT)
     draw.line([(MARGIN, HEADER_H - 1), (WIDTH - MARGIN, HEADER_H - 1)], fill=COLOR_ACCENT, width=1)
 
     col_x = [
@@ -139,7 +165,6 @@ def render_weekly_calendar(
     draw.line([(MARGIN, rule_y), (WIDTH - MARGIN, rule_y)], fill=COLOR_HAIRLINE, width=1)
 
     y = rule_y + 14
-    ordered = sorted(weekly_plan, key=lambda row: row[0])
     for day_index, food, training in ordered:
         is_rest = training.upper() == "DESCANSO"
         day_color = COLOR_TEXT_MUTED if is_rest else COLOR_TEXT
@@ -152,17 +177,18 @@ def render_weekly_calendar(
         for i, line in enumerate(_wrap(draw, sup_label, body_font, COL_SUP_W - 16)[:3]):
             draw.text((col_x[1], y + 10 + i * 22), line, font=body_font, fill=COLOR_TEXT)
 
-        training_label = "— descanso —" if is_rest else training.capitalize()
         training_font = muted_font if is_rest else body_font
-        for i, line in enumerate(_wrap(draw, training_label, training_font, COL_TRAIN_W - 16)[:2]):
+        for i, line in enumerate(training_lines[day_index]):
             draw.text((col_x[2], y + 10 + i * 22), line, font=training_font, fill=day_color)
 
-        if not is_rest:
-            for i, line in enumerate(_wrap(draw, food, body_font, COL_FOOD_W - 16)[:2]):
-                draw.text((col_x[3], y + 10 + i * 22), line, font=body_font, fill=COLOR_TEXT)
+        for i, line in enumerate(food_lines[day_index]):
+            draw.text((col_x[3], y + 10 + i * 22), line, font=body_font, fill=COLOR_TEXT)
 
-        y += ROW_H
+        y += row_heights[day_index]
         draw.line([(MARGIN, y - 1), (WIDTH - MARGIN, y - 1)], fill=COLOR_HAIRLINE, width=1)
+
+    if footer_note:
+        draw.text((MARGIN, y + 16), footer_note, font=muted_font, fill=COLOR_ACCENT)
 
     buffer = BytesIO()
     img.save(buffer, format="PNG")
@@ -230,6 +256,49 @@ def render_catalog_infographic() -> bytes:
     _draw_column(left_categories, MARGIN)
     _draw_column(right_categories, MARGIN * 2 + col_width)
 
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def render_protocol_image(title: str, products: list) -> bytes:
+    """Imagen oficial de una recomendación: el nombre del protocolo y la foto real de cada producto
+    (products: lista de (nombre, ruta_de_imagen), máximo 6) en una cuadrícula, con el mismo estilo
+    del calendario."""
+    products = products[:6]
+    cols = 1 if len(products) == 1 else 2 if len(products) in (2, 4) else 3
+    rows = -(-len(products) // cols)
+    cell_w = (WIDTH - MARGIN * (cols + 1)) // cols
+    photo_h = cell_w
+    label_h = 44
+    height = HEADER_H + MARGIN + rows * (photo_h + label_h + MARGIN) + 40
+
+    img = Image.new("RGB", (WIDTH, height), COLOR_BG)
+    draw = ImageDraw.Draw(img)
+    title_font = _font(30)
+    subtitle_font = _font(17)
+    label_font = _font(19, bold=True)
+    footer_font = _font(14)
+
+    draw.rectangle([0, 0, WIDTH, HEADER_H], fill=COLOR_HEADER_BG)
+    draw.text((MARGIN, 34), "Recomendado para ti", font=subtitle_font, fill=COLOR_ACCENT)
+    for i, line in enumerate(_wrap(draw, title, title_font, WIDTH - 2 * MARGIN)[:2]):
+        draw.text((MARGIN, 62 + i * 38), line, font=title_font, fill=COLOR_HEADER_TEXT)
+
+    for index, (name, path) in enumerate(products):
+        row, col = divmod(index, cols)
+        x = MARGIN + col * (cell_w + MARGIN)
+        y = HEADER_H + MARGIN + row * (photo_h + label_h + MARGIN)
+        with Image.open(path) as photo:
+            photo = photo.convert("RGB")
+            photo.thumbnail((cell_w, photo_h))
+            img.paste(photo, (x + (cell_w - photo.width) // 2, y + (photo_h - photo.height) // 2))
+        label = _wrap(draw, name, label_font, cell_w)[0]
+        draw.text((x + (cell_w - draw.textlength(label, font=label_font)) / 2, y + photo_h + 10), label,
+                  font=label_font, fill=COLOR_TEXT)
+
+    draw.text((MARGIN, height - 32), "I'AM · Suplementos alimenticios, no son medicamentos.", font=footer_font,
+              fill=COLOR_TEXT_MUTED)
     buffer = BytesIO()
     img.save(buffer, format="PNG")
     return buffer.getvalue()

@@ -46,9 +46,14 @@ def configure(llm, exclude_phones: set = None) -> None:
     _exclude_phones = set(exclude_phones or ())
 
 
-def _history_key(phone: str) -> str:
-    # Clave propia para no mezclar el coaching con lo que Belén platique en "mi plan".
-    return f"coach:{phone}"
+def history_key(phone: str) -> str:
+    """Clave propia para no mezclar el coaching con lo que Belén platique en "mi plan". Usa los
+    últimos 10 dígitos: Meta entrega su número como 521… y nosotros le escribimos al 52…"""
+    digits = re.sub(r"\D", "", phone or "")
+    return f"coach:{digits[-10:]}"
+
+
+_history_key = history_key
 
 
 def _today() -> date:
@@ -122,6 +127,13 @@ y de las ventas reales.
 quiere recibir mensajes (consentimiento de seguimiento).
 - Los teléfonos de clientes que te den las funciones son para que el equipo los contacte; no los repitas \
 completos si no hace falta.
+- Validación de ID de distribuidor: cuando un cliente da su ID de empresario, le mandas a Belén una consulta con 3 \
+preguntas (¿activo y verificado?, ¿qué porcentaje le corresponde?, ¿aplica a todo o tiene restricciones?). Cuando Belén \
+conteste, llama a `validar_descuento_distribuidor` con el teléfono del cliente (si solo hay una validación pendiente y no \
+lo dice, es esa). Si falta alguna de las 3 respuestas, pregúntasela antes; NUNCA supongas el porcentaje ni el alcance. \
+Con restricciones, pide el monto final del producto. Si dice que el ID no es válido, llama la función con id_activo \
+false. Para ver las pendientes usa `ver_validaciones_pendientes`. Si el historial del ID marca ⚠️ (varios teléfonos), \
+señálaselo antes de aprobar.
 - Si Belén te dice que ya dio de alta a un nuevo socio, usa `confirmar_inscripcion` (teléfono del aspirante \
 y tiempo en que se refleja); si falta el teléfono, pídeselo.
 - Formato WhatsApp: mensajes breves, con viñetas, negritas con *asteriscos* y máximo ~15 líneas salvo que \
@@ -502,6 +514,11 @@ def context_note() -> str:
     parts = [f"Hoy es {_today().isoformat()}."]
     progress = plan_progress()
     parts.append(format_plan_progress(progress) if progress else "No hay plan de 30 días activo.")
+    pending = storage.get_pending_discount_validations()
+    if pending:
+        parts.append("VALIDACIONES DE ID PENDIENTES (el cliente espera su precio): " + "; ".join(
+            f"cliente {o['phone']} · ID {o['distributor_id']} · {o.get('product') or 'producto'} "
+            f"{o.get('amount_public') or o.get('amount_expected')}" for o in pending))
     learning = storage.get_coach_learning()
     parts.append("Aprendizaje acumulado: " + json.dumps(learning, ensure_ascii=False))
     recent = storage.list_recent_coach_resources(3)

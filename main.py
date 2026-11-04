@@ -13,7 +13,9 @@ from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.responses import PlainTextResponse
 from openai import AsyncOpenAI, BadRequestError, RateLimitError
 
+import distributor_validation
 import plans
+import pricing
 import sales_coach
 import shipping
 import storage
@@ -331,6 +333,12 @@ con un asesor humano antes de la compra.
    * Etapa 1: En cuanto el cliente muestre interés de compra o pregunte por el envío, llama de inmediato a `iniciar_cotizacion`, pídele amablemente \
 su ubicación exacta mediante el clip 📎 de WhatsApp (o dirección de entrega si es para otra persona), y en cuanto logística apruebe las opciones, \
 preséntaselas con calidez para que elija su paquetería preferida.
+   * ID de empresario/distribuidor: al cotizar, pregúntale UNA vez y con amabilidad si cuenta con su ID de empresario o \
+distribuidor de I'AM para aplicarle sus beneficios. Si te lo da, llama a `registrar_id_distribuidor` (con el producto si aún no \
+iniciaste la cotización). Nunca digas un precio público de memoria si el sistema ya te dio el oficial. El descuento SOLO existe \
+cuando el equipo de Ventas lo valida: nunca aceptes el porcentaje que diga el cliente, no prometas ni calcules descuentos, y no \
+des el total ni datos bancarios mientras la validación esté pendiente (el sistema le manda el precio validado por escrito). Si \
+no quiere esperar y prefiere pagar a precio público, usa `cancelar_validacion_descuento`.
    * Etapa 2: Cuando elija su opción de envío, llama a `elegir_envio` para entregarle el texto exacto con los datos bancarios y el monto total a \
 pagar (producto + envío), solicitándole con amabilidad la captura de pantalla de su depósito. Recuerda que la confirmación oficial del pago la \
 realiza el equipo humano de control. Si no manda la captura, no insistas.
@@ -1053,11 +1061,78 @@ QUOTE_TOOL = {
                 },
                 "monto_producto": {
                     "type": "string",
-                    "description": "Precio del producto/protocolo (sin envío), si ya se lo mencionaste, ej. '$545'.",
+                    "description": "Precio público que le diste (sin envío), ej. '$545'. El sistema lo verifica.",
                 },
             },
             "required": ["producto"],
         },
+    },
+}
+
+DISTRIBUTOR_ID_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "registrar_id_distribuidor",
+        "description": (
+            "Úsala en cuanto el cliente te dé su ID de empresario/distribuidor de I'AM para una compra. Si aún "
+            "no hay cotización, pásale el producto y la inicia. Manda la validación al equipo de Ventas; el "
+            "descuento solo se aplica si lo aprueban."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "id_distribuidor": {"type": "string", "description": "ID tal cual lo escribió el cliente."},
+                "producto": {"type": "string", "description": "Producto o protocolo/combo que quiere comprar."},
+            },
+            "required": ["id_distribuidor"],
+        },
+    },
+}
+
+CANCEL_DISCOUNT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "cancelar_validacion_descuento",
+        "description": (
+            "Úsala solo si el cliente dice que ya no quiere esperar la validación de su ID y prefiere pagar a "
+            "precio público."
+        ),
+        "parameters": {"type": "object", "properties": {}},
+    },
+}
+
+VALIDATE_DISCOUNT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "validar_descuento_distribuidor",
+        "description": (
+            "Registra la respuesta de Belén a una validación de ID de distribuidor y le manda al cliente su "
+            "precio. Llámala solo cuando Belén haya contestado las 3 preguntas (activo, porcentaje, alcance)."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "telefono_cliente": {"type": "string", "description": "Teléfono del cliente (solo dígitos)."},
+                "id_activo": {"type": "boolean", "description": "¿El ID está activo y verificado?"},
+                "porcentaje": {"type": "number", "description": "Porcentaje de descuento autorizado (ej. 30)."},
+                "alcance": {"type": "string", "enum": ["general", "restringido"],
+                            "description": "general = aplica a todo el pedido; restringido = tiene restricciones."},
+                "restricciones": {"type": "string", "description": "Detalle de restricciones u observaciones."},
+                "monto_con_descuento": {"type": "number",
+                                        "description": "Monto final del producto (sin envío) si Belén lo dio, "
+                                                       "obligatorio cuando hay restricciones."},
+            },
+            "required": ["telefono_cliente", "id_activo"],
+        },
+    },
+}
+
+LIST_PENDING_DISCOUNTS_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "ver_validaciones_pendientes",
+        "description": "Lista las validaciones de ID de distribuidor que esperan respuesta de Belén.",
+        "parameters": {"type": "object", "properties": {}},
     },
 }
 
@@ -1333,6 +1408,8 @@ ALL_TOOLS = [
     START_SHARE_COURSE_TOOL,
     ADVANCE_SHARE_COURSE_TOOL,
     QUOTE_TOOL,
+    DISTRIBUTOR_ID_TOOL,
+    CANCEL_DISCOUNT_TOOL,
     CHOOSE_SHIPPING_TOOL,
     ENROLLMENT_TOOL,
     DELIVERY_NOTES_TOOL,
@@ -1569,6 +1646,125 @@ async def _send_whatsapp_image_by_id(http_client: httpx.AsyncClient, to: str, me
         logger.exception("Fallo de red al reenviar imagen a %s.", to)
 
 
+def _discount_line_for_control(order: dict) -> str:
+    if order.get("discount_status") == "aprobado":
+        pct = f"{order['discount_pct']:g}% " if order.get("discount_pct") else ""
+        return (f"Descuento de distribuidor {pct}validado por Belén (ID {order.get('distributor_id')}); "
+                f"precio público del producto: {order.get('amount_public')}.\n")
+    return ""
+
+
+async def _register_distributor_id(http_client, sender_phone: str, id_distribuidor: str = None,
+                                   producto: str = None, **_ignored) -> str:
+    distributor_id = (id_distribuidor or "").strip()
+    if len(re.sub(r"\W", "", distributor_id)) < 3:
+        return "ERROR: el ID no parece válido; pídele que lo revise y te lo escriba completo."
+    order = storage.get_active_order(sender_phone)
+    quote_note = ""
+    if not order and producto:
+        quote_note = await _start_quote(sender_phone, producto=producto)
+        order = storage.get_active_order(sender_phone)
+    if not order or order.get("status") == "en_revision":
+        return ("ERROR: no hay una cotización en curso a la que aplicar el ID. Vuelve a llamar esta función "
+                "incluyendo `producto` (lo que quiere comprar) y la cotización se inicia sola.")
+    if distributor_validation.parse_money(order.get("amount_public") or order.get("amount_expected")) is None:
+        return ("ERROR: la cotización no tiene el precio público del producto. Confírmale el precio público del "
+                "producto o combo y vuelve a iniciar la cotización con `monto_producto`.")
+    if order.get("discount_status") == "pendiente":
+        return "OK: su ID ya está en validación con el equipo; pídele un poco de paciencia, no lo registres de nuevo."
+    if order.get("discount_status") == "aprobado":
+        return "OK: su descuento ya fue validado y aplicado a esta cotización; no lo registres de nuevo."
+    storage.request_distributor_discount(order["id"], distributor_id)
+    await distributor_validation.notify_sales(http_client, storage.get_order(order["id"]))
+    logger.info("ID de distribuidor %s registrado para %s (orden %s), enviado a validación.",
+                distributor_id, sender_phone, order["id"])
+    return (
+        "OK: ID enviado a validación con el equipo de Ventas. Dile con calidez que estamos validando su ID para "
+        "aplicarle su beneficio, que mientras tanto puede seguir con la cotización de su envío y que en cuanto se "
+        "valide le llega por aquí su precio final. NO menciones porcentajes ni montos con descuento."
+        + (f"\nAdemás se inició su cotización: {quote_note}" if quote_note else "")
+    )
+
+
+async def _cancel_discount_validation(http_client, sender_phone: str, **_ignored) -> str:
+    order = storage.get_active_order(sender_phone)
+    if not order or not storage.cancel_distributor_discount(order["id"]):
+        return "ERROR: no hay una validación de descuento pendiente para este cliente."
+    await distributor_validation.notify_sales_text(
+        http_client,
+        f"ℹ️ El cliente {order['phone']} prefirió pagar a precio público; ya no hace falta validar el ID "
+        f"{order.get('distributor_id')}.",
+    )
+    if order.get("status") == "pendiente_pago":
+        return await _choose_shipping(sender_phone, opcion=order.get("shipping_choice"), _allow_repeat=True)
+    return "OK: validación cancelada; sigue con la cotización a precio público."
+
+
+async def _validate_distributor_discount(
+    http_client, telefono_cliente: str = None, id_activo: bool = None, porcentaje: float = None,
+    alcance: str = None, restricciones: str = None, monto_con_descuento: float = None, **_ignored,
+) -> str:
+    """Ejecutado solo desde la conversación de Belén (staff), nunca desde la del cliente."""
+    order = storage.get_pending_discount_order(re.sub(r"\D", "", telefono_cliente or ""))
+    if not order:
+        return f"ERROR: no hay una validación pendiente para el teléfono {telefono_cliente}."
+    if id_activo is None:
+        return "ERROR: falta saber si el ID está activo y verificado; pregúntaselo a Belén."
+    public = distributor_validation.parse_money(order.get("amount_public") or order.get("amount_expected"))
+    discounted = None
+    if id_activo:
+        if alcance not in ("general", "restringido"):
+            return "ERROR: falta saber si el descuento aplica a todo el pedido o tiene restricciones."
+        if porcentaje is None and monto_con_descuento is None:
+            return "ERROR: falta el porcentaje de descuento autorizado; pregúntaselo a Belén."
+        if porcentaje is not None and not 0 < float(porcentaje) <= distributor_validation.MAX_DISCOUNT_PCT:
+            return (f"ERROR: el porcentaje debe ser mayor a 0 y máximo {distributor_validation.MAX_DISCOUNT_PCT}%; "
+                    f"confírmalo con Belén.")
+        if alcance == "restringido" and monto_con_descuento is None:
+            return ("ERROR: con restricciones necesito el monto final del producto (sin envío) que le corresponde; "
+                    "pídeselo a Belén.")
+        if monto_con_descuento is not None and not 0 < float(monto_con_descuento) <= public:
+            return f"ERROR: el monto con descuento debe ser mayor a 0 y no mayor al precio público ({public:g})."
+        discounted = distributor_validation.compute_discount(
+            public, float(porcentaje) if porcentaje is not None else None,
+            float(monto_con_descuento) if monto_con_descuento is not None else None,
+        )
+        if porcentaje is None:
+            porcentaje = round(100 * (1 - discounted / public), 1)
+    updated = storage.resolve_distributor_discount(
+        order["id"], bool(id_activo), float(porcentaje) if id_activo else None,
+        alcance if id_activo else None, restricciones,
+        distributor_validation.money(discounted) if discounted is not None else None,
+    )
+    if not updated:
+        return "ERROR: esa validación ya no está pendiente."
+    customer = storage.get_customer(updated["phone"]) or {}
+    text = distributor_validation.client_price_message(updated, customer.get("name"))
+    if updated.get("status") == "pendiente_pago":
+        text += (f"\n\nPara completar tu pedido, estos son los datos para tu depósito:\n\n{BANK_DETAILS_TEXT}\n\n"
+                 f"Cuando lo hagas, mándame por aquí la captura de tu comprobante.")
+    await send_whatsapp_message(http_client, updated["phone"], text)
+    storage.log_message(updated["phone"], "assistant", text)
+    _get_history(updated["phone"]).append({"role": "assistant", "content": text})
+    logger.info("Validación de descuento orden %s: %s (%s%%).", order["id"], updated["discount_status"], porcentaje)
+    if id_activo:
+        return (f"OK: descuento aprobado para {updated['phone']}: {porcentaje:g}% → producto "
+                f"{distributor_validation.money(discounted)} (público {distributor_validation.money(public)}). "
+                f"Ya le mandé su precio al cliente.")
+    return f"OK: ID marcado como no válido; el cliente {updated['phone']} quedó a precio público y ya se le avisó."
+
+
+async def _list_pending_discounts(http_client, **_ignored) -> str:
+    pending = storage.get_pending_discount_validations()
+    if not pending:
+        return "OK: no hay validaciones de ID pendientes."
+    return "OK: validaciones pendientes:\n" + "\n".join(
+        f"- Cliente {o['phone']}: ID {o['distributor_id']}, {o.get('product') or 'producto'} "
+        f"{o.get('amount_public') or o.get('amount_expected')} (recordatorios: {o.get('discount_reminders') or 0})"
+        for o in pending
+    )
+
+
 async def _forward_order_to_control(http_client: httpx.AsyncClient, order: dict) -> None:
     customer = storage.get_customer(order["phone"])
     name = customer.get("name") if customer else None
@@ -1576,7 +1772,8 @@ async def _forward_order_to_control(http_client: httpx.AsyncClient, order: dict)
         f"📥 Nuevo pago reportado, pendiente de revisión.\n"
         f"Cliente: {name or 'sin nombre'} ({order['phone']})\n"
         f"Producto: {order.get('product') or 'no especificado'}\n"
-        f"Monto esperado: {order.get('amount_expected') or 'no especificado'}\n\n"
+        f"Monto esperado: {order.get('amount_expected') or 'no especificado'}\n"
+        f"{_discount_line_for_control(order)}\n"
         f"Lectura automática del comprobante (solo apoyo, confirma en la cuenta bancaria real):\n"
         f"{order.get('vision_summary') or '(sin lectura disponible)'}\n\n"
         f"{_format_order_location(order)}\n\n"
@@ -1613,14 +1810,32 @@ async def _start_quote(sender_phone: str, producto: str = None, monto_producto: 
             "continuar desde donde se quedó (falta ubicación, esperando aprobación, esperando que elija "
             "envío, o esperando su comprobante, según corresponda)."
         )
+    # El precio público se calcula en código (lista oficial + composición del combo): el modelo
+    # puede sumar mal, y este monto es la base del total, de los descuentos y de la revisión de pago.
+    price_note = ""
+    official = pricing.quote_public_price(producto)
+    if official:
+        official_total, breakdown = official
+        official_text = distributor_validation.money(official_total)
+        given = distributor_validation.parse_money(monto_producto)
+        if given is not None and abs(given - official_total) >= 1:
+            price_note = (
+                f" OJO: el precio público oficial de {producto} es {official_text} (desglose: "
+                + ", ".join(f"{name} ${price:,}" for name, price in breakdown)
+                + f"), no {monto_producto}. Corrígeselo con amabilidad en este mensaje."
+            )
+            logger.warning("Precio corregido en cotización de %s: %s -> %s", sender_phone, monto_producto, official_text)
+        monto_producto = official_text
     order_id = storage.create_quote(sender_phone, product=producto, amount_expected=monto_producto)
     logger.info("Cotización %s creada para %s (producto=%s, monto=%s)", order_id, sender_phone, producto, monto_producto)
     return (
-        "OK: cotización registrada. Pídele al cliente que comparta la ubicación EXACTA de entrega usando la "
+        f"OK: cotización registrada (precio público del producto: {monto_producto or 'no especificado'}).{price_note} Pídele al cliente que comparta la ubicación EXACTA de entrega usando la "
         "función de ubicación de WhatsApp (el clip 📎 → Ubicación). Puede mandar su ubicación actual o "
         "buscar y compartir otra dirección — por ejemplo si el pedido es un regalo o se envía a otra "
         "persona. Si no sabe cómo hacerlo, explícaselo paso a paso. NO le des ningún dato bancario todavía, "
-        "eso viene después de cotizar el envío."
+        "eso viene después de cotizar el envío. En ese mismo mensaje pregúntale con amabilidad si cuenta con su "
+        "ID de empresario o distribuidor de I'AM para aplicarle sus beneficios (si lo da, usa "
+        "`registrar_id_distribuidor`)."
     )
 
 
@@ -1787,9 +2002,10 @@ async def _approve_quote(
     return f"Cotización de {matched_phone} aprobada y enviada al cliente."
 
 
-async def _choose_shipping(sender_phone: str, opcion: str = None) -> str:
+async def _choose_shipping(sender_phone: str, opcion: str = None, _allow_repeat: bool = False) -> str:
     order = storage.get_active_order(sender_phone)
-    if not order or order.get("status") != "cotizado":
+    allowed = ("cotizado", "pendiente_pago") if _allow_repeat else ("cotizado",)
+    if not order or order.get("status") not in allowed:
         return "ERROR: no hay una cotización lista para elegir envío en este momento."
 
     options = json.loads(order.get("shipping_options_json") or "[]")
@@ -1803,6 +2019,14 @@ async def _choose_shipping(sender_phone: str, opcion: str = None) -> str:
         "Cliente %s eligió envío '%s' ($%s) para la orden %s.",
         sender_phone, chosen["nombre"], chosen["precio"], order["id"],
     )
+
+    if order.get("discount_status") == "pendiente":
+        return (
+            f"OK: envío '{chosen['nombre']}' elegido (entrega estimada {chosen['eta']}), pero su ID de distribuidor "
+            f"sigue en validación con el equipo de Ventas. NO le des datos bancarios ni total todavía: dile que en "
+            f"cuanto se valide su beneficio le llega por aquí su precio final con el total y los datos de pago. Si no "
+            f"quiere esperar, puede pagar a precio público (usa `cancelar_validacion_descuento`)."
+        )
 
     product_amount = _parse_money(order.get("amount_expected"))
     shipping_amount = _parse_money(chosen["precio"])
@@ -2238,6 +2462,7 @@ DEACTIVATE_HABIT_TOOL = {
 
 # El coaching de Belén vive en sales_coach.py; usa el mismo modelo (con respaldo) que el resto de TEO.
 sales_coach.configure(llm=lambda **kw: _create_chat_completion(**kw), exclude_phones=STAFF_PHONE_NUMBERS)
+distributor_validation.configure(WHATSAPP_API_URL, WHATSAPP_TOKEN, SALES_PHONE_NUMBER, sales_coach.history_key)
 
 STAFF_ALMA_PROMPT = """Eres un asistente interno (NO de cara a clientes) que ayuda a Alma Benítez, CEO de \
 I'AM, a responder casos clínicos delicados que TEO le escaló. Cuando te escriba con una recomendación \
@@ -2328,7 +2553,12 @@ async def _handle_belen_message(http_client: httpx.AsyncClient, sender_phone: st
     try:
         reply = await sales_coach.reply_to(
             http_client, sender_phone, user_text,
-            extra_tools=[CONFIRM_ENROLLMENT_TOOL], extra_dispatch={"confirmar_inscripcion": _confirm_enrollment},
+            extra_tools=[CONFIRM_ENROLLMENT_TOOL, VALIDATE_DISCOUNT_TOOL, LIST_PENDING_DISCOUNTS_TOOL],
+            extra_dispatch={
+                "confirmar_inscripcion": _confirm_enrollment,
+                "validar_descuento_distribuidor": _validate_distributor_discount,
+                "ver_validaciones_pendientes": _list_pending_discounts,
+            },
         )
     except Exception:
         logger.exception("Error en el coaching de ventas de %s.", sender_phone)
@@ -2886,6 +3116,7 @@ async def lifespan(app: FastAPI):
     app.state.followup_task = asyncio.create_task(
         run_followup_loop(app.state.http_client, WHATSAPP_API_URL, WHATSAPP_TOKEN)
     )
+    app.state.discount_task = asyncio.create_task(distributor_validation.run_reminder_loop(app.state.http_client))
     app.state.coach_task = asyncio.create_task(
         sales_coach.run_coach_loop(
             app.state.http_client, WHATSAPP_API_URL, WHATSAPP_TOKEN, SALES_PHONE_NUMBER,
@@ -2899,6 +3130,7 @@ async def lifespan(app: FastAPI):
     app.state.habit_task.cancel()
     app.state.followup_task.cancel()
     app.state.coach_task.cancel()
+    app.state.discount_task.cancel()
     await app.state.http_client.aclose()
 
 
@@ -3233,6 +3465,10 @@ async def _dispatch_tool_call(http_client: httpx.AsyncClient, sender_phone: str,
         return await _set_reminders_consent(sender_phone, **args)
     if name == "registrar_interes_negocio":
         return await _register_business_interest(sender_phone, **args)
+    if name == "registrar_id_distribuidor":
+        return await _register_distributor_id(http_client, sender_phone, **args)
+    if name == "cancelar_validacion_descuento":
+        return await _cancel_discount_validation(http_client, sender_phone)
     return f"ERROR: función '{name}' desconocida."
 
 
@@ -3669,6 +3905,17 @@ def _customer_stage_note(sender_phone: str):
     latest = storage.get_latest_authorized_order(sender_phone)
     customer = storage.get_customer(sender_phone) or {}
 
+    if order and order.get("discount_status") == "pendiente":
+        notes.append(
+            "Su ID de distribuidor está EN VALIDACIÓN con el equipo de Ventas. No prometas ni insinúes descuentos ni "
+            "porcentajes, no des total ni datos bancarios; el sistema le enviará su precio validado. Si no quiere "
+            "esperar, puede pagar a precio público (`cancelar_validacion_descuento`)."
+        )
+    elif order and order.get("discount_status") == "aprobado" and order.get("status") != "en_revision":
+        notes.append(
+            f"Su descuento de distribuidor ya fue validado: el producto quedó en {order.get('amount_expected')} "
+            f"(precio público {order.get('amount_public')}). Usa SOLO esas cifras."
+        )
     if order and order.get("status") == "en_revision":
         notes.append(
             "Ya envió su comprobante y el pago está EN VERIFICACIÓN HUMANA por el equipo de control. Estás en "
@@ -3676,7 +3923,7 @@ def _customer_stage_note(sender_phone: str):
             "entrega y no arranques su plan. Si pregunta o insiste, pídele con calidez que espere un poco más, "
             "porque la confirmación del depósito la hace una persona del equipo. Sí puedes resolver dudas de producto."
         )
-    elif order and order.get("status") == "pendiente_pago":
+    elif order and order.get("status") == "pendiente_pago" and order.get("discount_status") != "pendiente":
         notes.append(
             "Ya tiene los datos de pago. Si decide pagar, pídele amablemente la captura de su depósito; no "
             "insistas si no responde."

@@ -213,6 +213,20 @@ def init_db() -> None:
         _ensure_column(conn, "customers", "reminders_optin", "reminders_optin INTEGER")
         _ensure_column(conn, "customers", "business_interest", "business_interest TEXT")
         _ensure_column(conn, "orders", "received_at", "received_at TEXT")
+        # Validación de ID de distribuidor con Ventas (Belén) antes de aplicar cualquier descuento.
+        for column, ddl in (
+            ("distributor_id", "distributor_id TEXT"),
+            ("discount_status", "discount_status TEXT"),
+            ("discount_pct", "discount_pct REAL"),
+            ("discount_scope", "discount_scope TEXT"),
+            ("discount_notes", "discount_notes TEXT"),
+            ("amount_public", "amount_public TEXT"),
+            ("discount_requested_at", "discount_requested_at TEXT"),
+            ("discount_reminded_at", "discount_reminded_at TEXT"),
+            ("discount_reminders", "discount_reminders INTEGER NOT NULL DEFAULT 0"),
+            ("discount_resolved_at", "discount_resolved_at TEXT"),
+        ):
+            _ensure_column(conn, "orders", column, ddl)
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS campaign_content (
@@ -1568,3 +1582,129 @@ def get_coach_learning() -> dict:
             )
         ]
     return {"estrategias_recientes": strategies, "videos_utiles": liked, "videos_no_utiles": disliked}
+
+
+# ---------------------------------------------------------------------------
+# Validación de ID de distribuidor (descuentos autorizados por Ventas)
+# ---------------------------------------------------------------------------
+
+DISCOUNT_STATUSES = ("pendiente", "aprobado", "rechazado", "cancelado")
+
+
+def request_distributor_discount(order_id: int, distributor_id: str) -> None:
+    """Marca la orden como pendiente de validación. El aviso inicial a Belén cuenta como el
+    primer envío (discount_reminded_at) para medir los 15 minutos del siguiente recordatorio."""
+    with _connection() as conn:
+        conn.execute(
+            "UPDATE orders SET distributor_id = ?, discount_status = 'pendiente', discount_pct = NULL, "
+            "discount_scope = NULL, discount_notes = NULL, discount_requested_at = CURRENT_TIMESTAMP, "
+            "discount_reminded_at = CURRENT_TIMESTAMP, discount_reminders = 0, discount_resolved_at = NULL, "
+            "updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (distributor_id, order_id),
+        )
+
+
+def resolve_distributor_discount(order_id: int, approved: bool, pct: float = None, scope: str = None,
+                                 notes: str = None, discounted_amount: str = None):
+    """Registra la respuesta de Belén. Si se aprueba, conserva el precio público en
+    amount_public y deja en amount_expected el monto del producto con descuento (lo que ve
+    control al revisar el depósito). Devuelve la orden actualizada."""
+    with _connection() as conn:
+        order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+        if not order or order["discount_status"] != "pendiente":
+            return None
+        public_amount = order["amount_public"] or order["amount_expected"]
+        conn.execute(
+            "UPDATE orders SET discount_status = ?, discount_pct = ?, discount_scope = ?, discount_notes = ?, "
+            "amount_public = ?, amount_expected = ?, discount_resolved_at = CURRENT_TIMESTAMP, "
+            "updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (
+                "aprobado" if approved else "rechazado",
+                pct if approved else None,
+                scope if approved else None,
+                notes,
+                public_amount,
+                discounted_amount if approved and discounted_amount else public_amount,
+                order_id,
+            ),
+        )
+        return dict(conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone())
+
+
+def cancel_distributor_discount(order_id: int) -> bool:
+    with _connection() as conn:
+        return conn.execute(
+            "UPDATE orders SET discount_status = 'cancelado', discount_resolved_at = CURRENT_TIMESTAMP, "
+            "updated_at = CURRENT_TIMESTAMP WHERE id = ? AND discount_status = 'pendiente'",
+            (order_id,),
+        ).rowcount > 0
+
+
+def get_pending_discount_validations() -> list:
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM orders WHERE discount_status = 'pendiente' "
+            "AND status NOT IN ('autorizado', 'rechazado') ORDER BY discount_requested_at"
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_due_discount_reminders(minutes: int = 15) -> list:
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM orders WHERE discount_status = 'pendiente' "
+            "AND status NOT IN ('autorizado', 'rechazado') "
+            "AND (discount_reminded_at IS NULL OR discount_reminded_at <= datetime('now', ?)) "
+            "ORDER BY discount_requested_at",
+            (f"-{int(minutes)} minutes",),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def mark_discount_reminded(order_id: int) -> None:
+    with _connection() as conn:
+        conn.execute(
+            "UPDATE orders SET discount_reminded_at = CURRENT_TIMESTAMP, "
+            "discount_reminders = discount_reminders + 1 WHERE id = ?",
+            (order_id,),
+        )
+
+
+def get_pending_discount_order(phone_digits: str):
+    """Orden con validación pendiente para un teléfono de cliente, tolerando 521/52/10 dígitos."""
+    last10 = (phone_digits or "")[-10:]
+    if len(last10) < 10:
+        return None
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM orders WHERE discount_status = 'pendiente' AND substr(phone, -10) = ? "
+            "AND status NOT IN ('autorizado', 'rechazado') ORDER BY id DESC LIMIT 1",
+            (last10,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def _normalize_distributor_id(distributor_id: str) -> str:
+    return "".join(ch for ch in (distributor_id or "").upper() if ch.isalnum())
+
+
+def get_distributor_id_history(distributor_id: str, exclude_order_id: int = None) -> dict:
+    """Usos anteriores del mismo ID (sin importar mayúsculas, espacios o guiones): cuántos
+    teléfonos distintos lo han dado y el resultado de sus validaciones. Señal de suplantación."""
+    wanted = _normalize_distributor_id(distributor_id)
+    with _connection() as conn:
+        rows = [
+            dict(row) for row in conn.execute(
+                "SELECT id, phone, distributor_id, discount_status, discount_pct, discount_resolved_at "
+                "FROM orders WHERE distributor_id IS NOT NULL ORDER BY id"
+            )
+        ]
+    uses = [r for r in rows if _normalize_distributor_id(r["distributor_id"]) == wanted and r["id"] != exclude_order_id]
+    return {
+        "usos_previos": len(uses),
+        "telefonos_distintos": len({r["phone"][-10:] for r in uses}),
+        "validaciones": [
+            {"estado": r["discount_status"], "porcentaje": r["discount_pct"], "telefono": r["phone"]}
+            for r in uses[-5:]
+        ],
+    }

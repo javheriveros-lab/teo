@@ -239,6 +239,99 @@ def init_db() -> None:
             """
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_followup_log_phone ON followup_log (phone, id)")
+        # Programa de coaching comercial para Ventas (Belén): videos curados, estrategias
+        # co-creadas con TEO (con historial de versiones) y planes de 30 días medibles.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS coach_resources (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                video_id TEXT NOT NULL UNIQUE,
+                url TEXT NOT NULL,
+                title TEXT NOT NULL,
+                channel TEXT,
+                pillar TEXT,
+                query TEXT,
+                lesson TEXT,
+                rating INTEGER,
+                note TEXT,
+                sent_at TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS strategies (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'borrador',
+                content TEXT NOT NULL,
+                version INTEGER NOT NULL DEFAULT 1,
+                result TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS strategy_revisions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                strategy_id INTEGER NOT NULL,
+                version INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sales_plans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                strategy_id INTEGER,
+                start_date TEXT NOT NULL,
+                end_date TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'activo',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS plan_goals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                plan_id INTEGER NOT NULL,
+                metric TEXT NOT NULL,
+                target REAL NOT NULL,
+                owner TEXT,
+                manual_value REAL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS coach_daily_log (
+                date TEXT PRIMARY KEY,
+                resource_id INTEGER,
+                sent_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS plan_actions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                plan_id INTEGER NOT NULL,
+                week INTEGER NOT NULL,
+                description TEXT NOT NULL,
+                owner TEXT,
+                due_date TEXT,
+                status TEXT NOT NULL DEFAULT 'pendiente'
+            )
+            """
+        )
 
 
 def upsert_customer(
@@ -1074,3 +1167,404 @@ def next_followup_item(phone: str, sources: tuple):
 def log_followup(phone: str, source: str, item_id: int) -> None:
     with _connection() as conn:
         conn.execute("INSERT INTO followup_log (phone, source, item_id) VALUES (?, ?, ?)", (phone, source, item_id))
+
+
+# ---------------------------------------------------------------------------
+# Coaching comercial (Belén): datos reales, videos, estrategias y planes de 30 días
+# ---------------------------------------------------------------------------
+
+AUTO_METRICS = {
+    "pedidos_autorizados": "Pedidos autorizados",
+    "monto_vendido": "Monto vendido en productos ($)",
+    "inscripciones_confirmadas": "Inscripciones confirmadas",
+    "cotizaciones": "Cotizaciones iniciadas",
+    "recompras": "Recompras (2a compra o más del mismo cliente)",
+    "prospectos_reactivados": "Prospectos que respondieron tras un seguimiento",
+}
+STRATEGY_KINDS = ("reactivacion", "recompra", "incentivo", "dinamica_equipo", "prospeccion", "otra")
+STRATEGY_STATUSES = ("borrador", "aprobada", "en_ejecucion", "terminada", "descartada")
+_OPEN_QUOTE_STATUSES = "('cotizando', 'cotizacion_pendiente_aprobacion', 'cotizado', 'pendiente_pago')"
+
+
+def _exclude(exclude_phones, column: str):
+    if not exclude_phones:
+        return "", ()
+    placeholders = ", ".join("?" for _ in exclude_phones)
+    return f" AND substr({column}, -10) NOT IN ({placeholders})", tuple(exclude_phones)
+
+
+def _money(value) -> float:
+    try:
+        return float(str(value).replace("$", "").replace(",", "").strip())
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def get_sales_snapshot(days: int = 30, exclude_phones: set = None, sample_size: int = 10) -> dict:
+    """Foto comercial de los últimos `days` días, solo con datos reales de la base. Las listas de
+    teléfonos se recortan a `sample_size` para que quepan en un mensaje."""
+    since = f"-{int(days)} days"
+    ex_o, p_o = _exclude(exclude_phones, "o.phone")
+    ex_c, p_c = _exclude(exclude_phones, "c.phone")
+    ex_e, p_e = _exclude(exclude_phones, "e.phone")
+    ex_f, p_f = _exclude(exclude_phones, "f.phone")
+    ex_m, p_m = _exclude(exclude_phones, "m.phone")
+    with _connection() as conn:
+        by_status = {
+            row["status"]: row["n"]
+            for row in conn.execute(
+                f"SELECT o.status, COUNT(*) AS n FROM orders o "
+                f"WHERE o.created_at >= datetime('now', ?){ex_o} GROUP BY o.status",
+                (since, *p_o),
+            )
+        }
+        authorized = conn.execute(
+            f"SELECT o.product, o.amount_expected FROM orders o WHERE o.status = 'autorizado' "
+            f"AND o.updated_at >= datetime('now', ?){ex_o}",
+            (since, *p_o),
+        ).fetchall()
+        products: dict = {}
+        for row in authorized:
+            name = (row["product"] or "sin especificar").strip()
+            products[name] = products.get(name, 0) + 1
+        top_products = sorted(products.items(), key=lambda item: -item[1])[:5]
+
+        stalled = [
+            row["phone"] for row in conn.execute(
+                f"SELECT DISTINCT o.phone FROM orders o WHERE o.status IN {_OPEN_QUOTE_STATUSES} "
+                f"AND o.updated_at < datetime('now', '-3 days') "
+                f"AND o.updated_at >= datetime('now', '-60 days'){ex_o}",
+                p_o,
+            )
+        ]
+        repurchase = [
+            row["phone"] for row in conn.execute(
+                f"SELECT o.phone FROM orders o WHERE o.status = 'autorizado'{ex_o} GROUP BY o.phone "
+                f"HAVING MAX(o.updated_at) BETWEEN datetime('now', '-90 days') AND datetime('now', '-30 days')",
+                p_o,
+            )
+        ]
+        inactive_partners = [
+            row["phone"] for row in conn.execute(
+                f"SELECT DISTINCT e.phone FROM enrollments e WHERE e.status = 'confirmado'{ex_e} "
+                f"AND NOT EXISTS (SELECT 1 FROM orders o WHERE substr(o.phone, -10) = substr(e.phone, -10) "
+                f"AND o.status = 'autorizado' AND o.updated_at >= datetime('now', '-45 days'))",
+                p_e,
+            )
+        ]
+        enrollments_confirmed = conn.execute(
+            f"SELECT COUNT(*) AS n FROM enrollments e WHERE e.status = 'confirmado' "
+            f"AND e.updated_at >= datetime('now', ?){ex_e}",
+            (since, *p_e),
+        ).fetchone()["n"]
+        business = {
+            row["business_interest"]: row["n"]
+            for row in conn.execute(
+                f"SELECT c.business_interest, COUNT(*) AS n FROM customers c "
+                f"WHERE c.business_interest IS NOT NULL{ex_c} GROUP BY c.business_interest",
+                p_c,
+            )
+        }
+        followups_sent = conn.execute(
+            f"SELECT COUNT(*) AS n FROM followup_log f WHERE f.sent_at >= datetime('now', ?){ex_f}",
+            (since, *p_f),
+        ).fetchone()["n"]
+        active_chats = conn.execute(
+            f"SELECT COUNT(DISTINCT m.phone) AS n FROM conversations m WHERE m.role = 'user' "
+            f"AND m.created_at >= datetime('now', ?){ex_m}",
+            (since, *p_m),
+        ).fetchone()["n"]
+
+    return {
+        "dias": int(days),
+        "clientes_que_escribieron": active_chats,
+        "pedidos_por_estado": by_status,
+        "pedidos_autorizados": len(authorized),
+        "monto_vendido": round(sum(_money(row["amount_expected"]) for row in authorized), 2),
+        "productos_mas_vendidos": top_products,
+        "cotizaciones_atascadas": {"total": len(stalled), "telefonos": stalled[:sample_size]},
+        "candidatos_recompra_30_90d": {"total": len(repurchase), "telefonos": repurchase[:sample_size]},
+        "socios_inactivos_45d": {"total": len(inactive_partners), "telefonos": inactive_partners[:sample_size]},
+        "inscripciones_confirmadas": enrollments_confirmed,
+        "interes_negocio": business,
+        "seguimientos_enviados": followups_sent,
+        "prospectos_en_seguimiento_hoy": len(get_followup_prospects()),
+    }
+
+
+def get_metric_actual(metric: str, start_date: str, end_date: str, exclude_phones: set = None) -> float:
+    """Valor real de una métrica automática entre dos fechas (YYYY-MM-DD, inclusivas)."""
+    ex_o, p_o = _exclude(exclude_phones, "o.phone")
+    window = (start_date, end_date)
+    with _connection() as conn:
+        if metric == "pedidos_autorizados":
+            return conn.execute(
+                f"SELECT COUNT(*) AS n FROM orders o WHERE o.status = 'autorizado' "
+                f"AND date(o.updated_at) BETWEEN ? AND ?{ex_o}", (*window, *p_o),
+            ).fetchone()["n"]
+        if metric == "monto_vendido":
+            rows = conn.execute(
+                f"SELECT o.amount_expected FROM orders o WHERE o.status = 'autorizado' "
+                f"AND date(o.updated_at) BETWEEN ? AND ?{ex_o}", (*window, *p_o),
+            ).fetchall()
+            return round(sum(_money(row["amount_expected"]) for row in rows), 2)
+        if metric == "cotizaciones":
+            return conn.execute(
+                f"SELECT COUNT(*) AS n FROM orders o WHERE date(o.created_at) BETWEEN ? AND ?{ex_o}",
+                (*window, *p_o),
+            ).fetchone()["n"]
+        if metric == "recompras":
+            return conn.execute(
+                f"SELECT COUNT(*) AS n FROM orders o WHERE o.status = 'autorizado' "
+                f"AND date(o.updated_at) BETWEEN ? AND ?{ex_o} AND EXISTS (SELECT 1 FROM orders p "
+                f"WHERE p.phone = o.phone AND p.status = 'autorizado' AND p.id < o.id)",
+                (*window, *p_o),
+            ).fetchone()["n"]
+        if metric == "inscripciones_confirmadas":
+            ex_e, p_e = _exclude(exclude_phones, "e.phone")
+            return conn.execute(
+                f"SELECT COUNT(*) AS n FROM enrollments e WHERE e.status = 'confirmado' "
+                f"AND date(e.updated_at) BETWEEN ? AND ?{ex_e}", (*window, *p_e),
+            ).fetchone()["n"]
+        if metric == "prospectos_reactivados":
+            ex_f, p_f = _exclude(exclude_phones, "f.phone")
+            return conn.execute(
+                f"SELECT COUNT(DISTINCT f.phone) AS n FROM followup_log f WHERE date(f.sent_at) <= ?{ex_f} "
+                f"AND EXISTS (SELECT 1 FROM conversations m WHERE m.phone = f.phone AND m.role = 'user' "
+                f"AND m.created_at > f.sent_at AND date(m.created_at) BETWEEN ? AND ?)",
+                (end_date, *p_f, *window),
+            ).fetchone()["n"]
+    raise ValueError(f"Métrica desconocida: {metric}")
+
+
+# --- Videos curados para Belén ---
+
+def coach_video_known(video_id: str) -> bool:
+    with _connection() as conn:
+        return conn.execute("SELECT 1 FROM coach_resources WHERE video_id = ?", (video_id,)).fetchone() is not None
+
+
+def save_coach_resource(video: dict, pillar: str, query: str, lesson: str) -> int:
+    """Guarda un video curado (o actualiza su lección si ya existía) y devuelve su id."""
+    with _connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO coach_resources (video_id, url, title, channel, pillar, query, lesson)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(video_id) DO UPDATE SET lesson = excluded.lesson
+            """,
+            (video["video_id"], video["url"], video["title"], video.get("channel"), pillar, query, lesson),
+        )
+        return conn.execute(
+            "SELECT id FROM coach_resources WHERE video_id = ?", (video["video_id"],)
+        ).fetchone()["id"]
+
+
+def mark_coach_resource_sent(resource_id: int) -> None:
+    with _connection() as conn:
+        conn.execute("UPDATE coach_resources SET sent_at = CURRENT_TIMESTAMP WHERE id = ?", (resource_id,))
+
+
+def coach_daily_sent_on(date_str: str) -> bool:
+    with _connection() as conn:
+        return conn.execute("SELECT 1 FROM coach_daily_log WHERE date = ?", (date_str,)).fetchone() is not None
+
+
+def log_coach_daily(date_str: str, resource_id: int = None) -> None:
+    with _connection() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO coach_daily_log (date, resource_id) VALUES (?, ?)", (date_str, resource_id)
+        )
+
+
+def get_coach_resource(resource_id: int):
+    with _connection() as conn:
+        row = conn.execute("SELECT * FROM coach_resources WHERE id = ?", (resource_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def rate_coach_resource(resource_id: int, useful: bool, note: str = None) -> bool:
+    with _connection() as conn:
+        cursor = conn.execute(
+            "UPDATE coach_resources SET rating = ?, note = COALESCE(?, note) WHERE id = ?",
+            (1 if useful else -1, note, resource_id),
+        )
+        return cursor.rowcount > 0
+
+
+def get_fallback_coach_resource(min_days_since_sent: int = 30):
+    """Respaldo cuando YouTube no responde: un video bien calificado por Belén que no se le
+    haya repetido en los últimos `min_days_since_sent` días."""
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM coach_resources WHERE rating = 1 "
+            "AND (sent_at IS NULL OR sent_at < datetime('now', ?)) ORDER BY sent_at LIMIT 1",
+            (f"-{int(min_days_since_sent)} days",),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def list_recent_coach_resources(limit: int = 5) -> list:
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT id, title, channel, pillar, url, lesson, rating, sent_at FROM coach_resources "
+            "WHERE sent_at IS NOT NULL ORDER BY sent_at DESC, id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
+# --- Estrategias co-creadas ---
+
+def save_strategy(title: str, kind: str, content: str, strategy_id: int = None):
+    """Crea una estrategia o, con `strategy_id`, guarda una versión nueva (la anterior queda en
+    strategy_revisions). Devuelve la estrategia resultante, o None si el id no existe."""
+    kind = kind if kind in STRATEGY_KINDS else "otra"
+    with _connection() as conn:
+        if strategy_id is None:
+            strategy_id = conn.execute(
+                "INSERT INTO strategies (title, kind, content) VALUES (?, ?, ?)", (title, kind, content)
+            ).lastrowid
+        else:
+            current = conn.execute("SELECT * FROM strategies WHERE id = ?", (strategy_id,)).fetchone()
+            if not current:
+                return None
+            conn.execute(
+                "INSERT INTO strategy_revisions (strategy_id, version, content) VALUES (?, ?, ?)",
+                (strategy_id, current["version"], current["content"]),
+            )
+            conn.execute(
+                "UPDATE strategies SET title = ?, kind = ?, content = ?, version = version + 1, "
+                "updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (title or current["title"], kind, content, strategy_id),
+            )
+    return get_strategy(strategy_id)
+
+
+def get_strategy(strategy_id: int):
+    with _connection() as conn:
+        row = conn.execute("SELECT * FROM strategies WHERE id = ?", (strategy_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def list_strategies(include_closed: bool = False, limit: int = 15) -> list:
+    clause = "" if include_closed else " WHERE status NOT IN ('terminada', 'descartada')"
+    with _connection() as conn:
+        rows = conn.execute(
+            f"SELECT id, title, kind, status, version, result, updated_at FROM strategies{clause} "
+            f"ORDER BY updated_at DESC, id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def count_strategy_revisions(strategy_id: int) -> int:
+    with _connection() as conn:
+        return conn.execute(
+            "SELECT COUNT(*) AS n FROM strategy_revisions WHERE strategy_id = ?", (strategy_id,)
+        ).fetchone()["n"]
+
+
+def set_strategy_status(strategy_id: int, status: str, result: str = None) -> bool:
+    if status not in STRATEGY_STATUSES:
+        raise ValueError(f"Estado inválido: {status}")
+    with _connection() as conn:
+        cursor = conn.execute(
+            "UPDATE strategies SET status = ?, result = COALESCE(?, result), updated_at = CURRENT_TIMESTAMP "
+            "WHERE id = ?",
+            (status, result, strategy_id),
+        )
+        return cursor.rowcount > 0
+
+
+# --- Planes de 30 días ---
+
+def create_sales_plan(title: str, start_date: str, end_date: str, goals: list, actions: list,
+                      strategy_id: int = None) -> int:
+    """Crea el plan activo (cierra el anterior: solo hay uno a la vez). `goals`: dicts con
+    metric/target/owner; `actions`: dicts con week/description/owner/due_date."""
+    with _connection() as conn:
+        conn.execute("UPDATE sales_plans SET status = 'cerrado' WHERE status = 'activo'")
+        plan_id = conn.execute(
+            "INSERT INTO sales_plans (title, strategy_id, start_date, end_date) VALUES (?, ?, ?, ?)",
+            (title, strategy_id, start_date, end_date),
+        ).lastrowid
+        for goal in goals:
+            conn.execute(
+                "INSERT INTO plan_goals (plan_id, metric, target, owner) VALUES (?, ?, ?, ?)",
+                (plan_id, goal["metric"], float(goal["target"]), goal.get("owner")),
+            )
+        for action in actions:
+            conn.execute(
+                "INSERT INTO plan_actions (plan_id, week, description, owner, due_date) VALUES (?, ?, ?, ?, ?)",
+                (plan_id, int(action["week"]), action["description"], action.get("owner"), action.get("due_date")),
+            )
+        if strategy_id:
+            conn.execute(
+                "UPDATE strategies SET status = 'en_ejecucion', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (strategy_id,),
+            )
+        return plan_id
+
+
+def get_active_plan():
+    """Plan activo con sus metas y acciones (sin calcular el avance; eso lo hace quien llama
+    con get_metric_actual)."""
+    with _connection() as conn:
+        plan = conn.execute(
+            "SELECT * FROM sales_plans WHERE status = 'activo' ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        if not plan:
+            return None
+        plan = dict(plan)
+        plan["goals"] = [
+            dict(row) for row in conn.execute("SELECT * FROM plan_goals WHERE plan_id = ? ORDER BY id", (plan["id"],))
+        ]
+        plan["actions"] = [
+            dict(row) for row in conn.execute(
+                "SELECT * FROM plan_actions WHERE plan_id = ? ORDER BY week, id", (plan["id"],)
+            )
+        ]
+    return plan
+
+
+def close_active_plan() -> bool:
+    with _connection() as conn:
+        return conn.execute("UPDATE sales_plans SET status = 'cerrado' WHERE status = 'activo'").rowcount > 0
+
+
+def set_goal_manual_value(goal_id: int, value: float) -> bool:
+    with _connection() as conn:
+        return conn.execute(
+            "UPDATE plan_goals SET manual_value = ? WHERE id = ?", (float(value), goal_id)
+        ).rowcount > 0
+
+
+def set_action_status(action_id: int, done: bool) -> bool:
+    with _connection() as conn:
+        return conn.execute(
+            "UPDATE plan_actions SET status = ? WHERE id = ?", ("hecha" if done else "pendiente", action_id)
+        ).rowcount > 0
+
+
+def get_coach_learning() -> dict:
+    """Memoria acumulada del programa: qué estrategias se han probado y cómo salieron, y qué
+    videos le sirvieron (o no) a Belén."""
+    with _connection() as conn:
+        strategies = [
+            dict(row) for row in conn.execute(
+                "SELECT id, title, kind, status, version, result FROM strategies "
+                "ORDER BY updated_at DESC, id DESC LIMIT 5"
+            )
+        ]
+        liked = [
+            dict(row) for row in conn.execute(
+                "SELECT title, pillar, note FROM coach_resources WHERE rating = 1 ORDER BY id DESC LIMIT 3"
+            )
+        ]
+        disliked = [
+            dict(row) for row in conn.execute(
+                "SELECT title, pillar, note FROM coach_resources WHERE rating = -1 ORDER BY id DESC LIMIT 3"
+            )
+        ]
+    return {"estrategias_recientes": strategies, "videos_utiles": liked, "videos_no_utiles": disliked}

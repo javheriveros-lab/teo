@@ -14,6 +14,7 @@ from fastapi.responses import PlainTextResponse
 from openai import AsyncOpenAI, BadRequestError, RateLimitError
 
 import plans
+import sales_coach
 import shipping
 import storage
 import vision
@@ -52,6 +53,11 @@ FALLBACK_MODEL = "anthropic/claude-sonnet-4.5"
 WHATSAPP_API_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PHONE_NUMBER_ID}/messages"
 WHATSAPP_MEDIA_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PHONE_NUMBER_ID}/media"
 WHATSAPP_MAX_MESSAGE_LENGTH = 4096
+
+# Coaching comercial de Belén: cápsula diaria lun–vie (la clave de YouTube la lee youtube_coach
+# directamente de YOUTUBE_API_KEY; si falta, el servidor arranca igual y solo se registra un aviso).
+SALES_COACH_HOUR = int(os.environ.get("SALES_COACH_HOUR", "9"))
+SALES_COACH_MINUTE = int(os.environ.get("SALES_COACH_MINUTE", "0"))
 
 # Módulo de Pagos: datos bancarios oficiales (texto fijo, nunca generado por el modelo para
 # evitar errores de dígitos).
@@ -139,8 +145,26 @@ FORMATO EN WHATSAPP:
 cada respuesta — nunca satures un mensaje entero de negritas.
 - Usa viñetas o listas cortas cuando compares opciones o expliques varios pasos; evita párrafos largos sin \
 cortes.
-- Cierra siempre con una llamada a la acción clara y directa (una pregunta concreta o un siguiente paso \
-específico) — nunca dejes el mensaje "abierto" sin rumbo.
+- Cierra con una pregunta o un siguiente paso concreto cuando aporte. Si la persona solo quiere platicar o \
+resolver una duda, basta con una pregunta para confirmar que la entendiste o para profundizar — no fuerces una \
+venta.
+
+CONVERSACIÓN ABIERTA DE SALUD (sin tabús):
+- Eres una IA con la que se puede platicar de CUALQUIER tema de salud: digestión, sexualidad, salud íntima, salud \
+mental, peso, sueño, hormonas, adicciones, enfermedades, dudas "vergonzosas" o preguntas difíciles. Responde con \
+naturalidad, sin juzgar, sin incomodarte y sin esquivar el tema; si la persona dice que le da pena preguntar, \
+quítale la pena con calidez y respóndele.
+- Responde primero lo que te preguntaron, con información clara, útil y basada en evidencia (qué es, por qué \
+pasa, qué lo mejora, qué hábitos ayudan, cuándo conviene ver a un profesional). Una pregunta sencilla merece una \
+respuesta directa y breve; una difícil, una explicación completa por partes.
+- Si la pregunta es ambigua o puede significar varias cosas, asegúrate de entender antes de responder: \
+"¿Te refieres a...?" o "Para entenderte bien, ¿...?". Si ya respondiste algo complejo, puedes confirmar al final \
+si eso era lo que buscaba.
+- No todo tiene que terminar en un producto: recomienda I'AM solo cuando venga al caso. Tampoco necesitas haber \
+completado el historial clínico para dar información general de salud; ese historial es requisito solo antes \
+de recomendar productos.
+- Los límites de siempre siguen aplicando: no diagnosticas ni sustituyes al médico, ante señales de emergencia \
+indicas buscar atención inmediata, y para casos clínicos graves aplica el escalamiento con Alma.
 
 REGLA INQUEBRANTABLE DE VOCABULARIO:
 - Describe el enfoque de la marca solo como "optimización biológica", "medicina funcional" o "biohacking \
@@ -2212,6 +2236,9 @@ DEACTIVATE_HABIT_TOOL = {
     },
 }
 
+# El coaching de Belén vive en sales_coach.py; usa el mismo modelo (con respaldo) que el resto de TEO.
+sales_coach.configure(llm=lambda **kw: _create_chat_completion(**kw), exclude_phones=STAFF_PHONE_NUMBERS)
+
 STAFF_ALMA_PROMPT = """Eres un asistente interno (NO de cara a clientes) que ayuda a Alma Benítez, CEO de \
 I'AM, a responder casos clínicos delicados que TEO le escaló. Cuando te escriba con una recomendación \
 técnica para un caso (identificando al cliente por su teléfono), usa la función `responder_caso_clinico` con \
@@ -2240,12 +2267,6 @@ Chimalhuacán) de I'AM. Puedes hacer 2 cosas: (1) confirmar que ya diste de alta
 el inventario de un producto con `actualizar_inventario` (producto, cantidad en existencia). Interpreta el \
 mensaje del humano y llama a la función que corresponda. Si no puedes identificar el teléfono del aspirante, \
 NO llames a `confirmar_inscripcion`: responde en texto pidiendo que lo incluya."""
-
-STAFF_BELEN_PROMPT = """Eres un asistente interno (NO de cara a clientes) que ayuda a Belén Figueroa (Ventas \
-e inscripciones) de I'AM. Tu única función es interpretar el mensaje del humano y llamar a \
-`confirmar_inscripcion` cuando diga que ya dio de alta a un nuevo socio, con el teléfono del aspirante y el \
-tiempo en que se reflejará su inscripción. Si no puedes identificar el teléfono del aspirante, NO llames a \
-la función: responde en texto pidiendo que lo incluya."""
 
 STAFF_JACOB_PROMPT = """Eres un asistente interno (NO de cara a clientes) que ayuda a Jacob Riveros, quien \
 tiene un rol doble en I'AM: Marketing e Inteligencia de Conversaciones, y también Jefe de Producción. Puedes \
@@ -2299,6 +2320,20 @@ async def _handle_staff_message(
     except Exception:
         logger.exception("Error al procesar mensaje de staff de %s.", sender_phone)
         await send_whatsapp_message(http_client, sender_phone, "Hubo un error procesando tu instrucción, intenta de nuevo.")
+
+
+async def _handle_belen_message(http_client: httpx.AsyncClient, sender_phone: str, user_text: str) -> None:
+    """Belén (Ventas): conversación con memoria con TEO como socio comercial (sales_coach), que
+    conserva su función de siempre de confirmar inscripciones."""
+    try:
+        reply = await sales_coach.reply_to(
+            http_client, sender_phone, user_text,
+            extra_tools=[CONFIRM_ENROLLMENT_TOOL], extra_dispatch={"confirmar_inscripcion": _confirm_enrollment},
+        )
+    except Exception:
+        logger.exception("Error en el coaching de ventas de %s.", sender_phone)
+        reply = "Tuve un problema técnico procesando tu mensaje, ¿me lo mandas de nuevo en un momento?"
+    await send_whatsapp_message(http_client, sender_phone, reply)
 
 
 async def _confirm_enrollment(
@@ -2787,6 +2822,13 @@ async def _send_daily_executive_reports(http_client: httpx.AsyncClient) -> None:
 
     metrics = storage.get_daily_metrics(today_str, exclude_phones=STAFF_PHONE_NUMBERS)
     report_text = _format_daily_metrics(metrics, today_str)
+    try:
+        plan_line = sales_coach.plan_progress_line()
+    except Exception:
+        logger.exception("No se pudo calcular el avance del plan de ventas para el reporte.")
+        plan_line = ""
+    if plan_line:
+        report_text += f"\n{plan_line}"
     await send_whatsapp_message(http_client, CEO_PHONE_NUMBER, report_text)
     logger.info("Reporte ejecutivo diario enviado a la CEO (%s).", today_str)
 
@@ -2844,12 +2886,19 @@ async def lifespan(app: FastAPI):
     app.state.followup_task = asyncio.create_task(
         run_followup_loop(app.state.http_client, WHATSAPP_API_URL, WHATSAPP_TOKEN)
     )
+    app.state.coach_task = asyncio.create_task(
+        sales_coach.run_coach_loop(
+            app.state.http_client, WHATSAPP_API_URL, WHATSAPP_TOKEN, SALES_PHONE_NUMBER,
+            SALES_COACH_HOUR, SALES_COACH_MINUTE,
+        )
+    )
     logger.info("TEO iniciado correctamente. Modelo principal: %s (respaldo: %s)", PRIMARY_MODEL, FALLBACK_MODEL)
     yield
     app.state.scheduler_task.cancel()
     app.state.executive_report_task.cancel()
     app.state.habit_task.cancel()
     app.state.followup_task.cancel()
+    app.state.coach_task.cancel()
     await app.state.http_client.aclose()
 
 
@@ -2975,12 +3024,6 @@ async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> N
             {"confirmar_inscripcion": _confirm_enrollment, "actualizar_inventario": _inventory_handler_for(sender_phone)},
         ),
         (
-            {_normalize_phone(SALES_PHONE_NUMBER)},
-            STAFF_BELEN_PROMPT,
-            [CONFIRM_ENROLLMENT_TOOL],
-            {"confirmar_inscripcion": _confirm_enrollment},
-        ),
-        (
             {_normalize_phone(MARKETING_PHONE_NUMBER)},
             STAFF_JACOB_PROMPT,
             [
@@ -3004,6 +3047,13 @@ async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> N
             {"responder_caso_clinico": _respond_clinical_case},
         ),
     ]
+
+    if not staff_distributor_active and sender_normalized == _normalize_phone(SALES_PHONE_NUMBER):
+        if message.get("type") == "text":
+            coach_text = message.get("text", {}).get("body", "").strip()
+            if coach_text:
+                await _handle_belen_message(http_client, sender_phone, coach_text)
+        return
 
     if not staff_distributor_active:
         for numbers, system_prompt, tools, dispatch in staff_routes:
@@ -3094,7 +3144,7 @@ async def get_ai_response(http_client: httpx.AsyncClient, sender_phone: str, use
             if response_message.tool_calls:
                 reply = await _run_tool_and_get_final_reply(http_client, sender_phone, messages, response_message)
             else:
-                reply = response_message.content.strip()
+                reply = (response_message.content or "").strip() or EMPTY_REPLY_FALLBACK
 
             history.append({"role": "assistant", "content": reply})
             storage.log_message(sender_phone, "assistant", reply)
@@ -3110,7 +3160,7 @@ async def get_ai_response(http_client: httpx.AsyncClient, sender_phone: str, use
                     temperature=0.5,
                     max_tokens=1000,
                 )
-                reply = fallback_completion.choices[0].message.content.strip()
+                reply = (fallback_completion.choices[0].message.content or "").strip() or EMPTY_REPLY_FALLBACK
                 history.append({"role": "assistant", "content": reply})
                 storage.log_message(sender_phone, "assistant", reply)
                 return reply
@@ -3186,6 +3236,10 @@ async def _dispatch_tool_call(http_client: httpx.AsyncClient, sender_phone: str,
     return f"ERROR: función '{name}' desconocida."
 
 
+MAX_TOOL_ROUNDS = 3
+EMPTY_REPLY_FALLBACK = "Perdona, ¿me lo puedes contar de otra forma? Quiero asegurarme de entenderte bien."
+
+
 async def _run_tool_and_get_final_reply(
     http_client: httpx.AsyncClient, sender_phone: str, messages: list, response_message
 ) -> str:
@@ -3208,15 +3262,42 @@ async def _run_tool_and_get_final_reply(
             ],
         },
     ]
-    for tool_call in tool_calls:
-        tool_result = await _dispatch_tool_call(http_client, sender_phone, tool_call)
-        followup_messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": tool_result})
-    final_completion = await _create_chat_completion(
-        messages=followup_messages,
-        temperature=0.5,
-        max_tokens=1000,
-    )
-    return final_completion.choices[0].message.content.strip()
+    for round_number in range(1, MAX_TOOL_ROUNDS + 1):
+        for tool_call in tool_calls:
+            try:
+                tool_result = await _dispatch_tool_call(http_client, sender_phone, tool_call)
+            except Exception:
+                logger.exception("La función '%s' falló para %s.", tool_call.function.name, sender_phone)
+                tool_result = (
+                    "ERROR: la función falló internamente. Continúa la conversación sin ella y no digas que se hizo."
+                )
+            followup_messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": str(tool_result)})
+
+        # Se le siguen ofreciendo las tools (p. ej. enviar la imagen y luego consultar la ficha); en la
+        # última ronda ya no, para obligarlo a contestar en texto.
+        extra = {"tools": ALL_TOOLS} if round_number < MAX_TOOL_ROUNDS else {}
+        completion = await _create_chat_completion(
+            messages=followup_messages, temperature=0.5, max_tokens=1000, **extra
+        )
+        message = completion.choices[0].message
+        if not message.tool_calls:
+            return (message.content or "").strip() or EMPTY_REPLY_FALLBACK
+        tool_calls = message.tool_calls
+        followup_messages.append(
+            {
+                "role": "assistant",
+                "content": message.content,
+                "tool_calls": [
+                    {
+                        "id": tool_call.id,
+                        "type": "function",
+                        "function": {"name": tool_call.function.name, "arguments": tool_call.function.arguments},
+                    }
+                    for tool_call in tool_calls
+                ],
+            }
+        )
+    return EMPTY_REPLY_FALLBACK
 
 
 async def send_whatsapp_message(http_client: httpx.AsyncClient, to: str, text: str) -> None:

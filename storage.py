@@ -227,6 +227,29 @@ def init_db() -> None:
             ("discount_resolved_at", "discount_resolved_at TEXT"),
         ):
             _ensure_column(conn, "orders", column, ddl)
+        # Flujo de alta de socios con pago (Ara) e identidad (Belén/Yeni). `flow_stage` convive con el
+        # `status` original (su CHECK no se puede ampliar en SQLite); NULL = inscripción del flujo viejo.
+        for column, ddl in (
+            ("flow_stage", "flow_stage TEXT"),
+            ("origin", "origin TEXT"),
+            ("sponsor_phone", "sponsor_phone TEXT"),
+            ("order_id", "order_id INTEGER"),
+            ("payment_approved_by", "payment_approved_by TEXT"),
+            ("ping_message_id", "ping_message_id TEXT"),
+            ("ping_failed_notified", "ping_failed_notified INTEGER NOT NULL DEFAULT 0"),
+            ("approved_by", "approved_by TEXT"),
+            ("rejection_reason", "rejection_reason TEXT"),
+            ("activated_at", "activated_at TEXT"),
+        ):
+            _ensure_column(conn, "enrollments", column, ddl)
+        _ensure_column(conn, "orders", "kind", "kind TEXT NOT NULL DEFAULT 'pedido'")
+        _ensure_column(conn, "orders", "enrollment_id", "enrollment_id INTEGER")
+        for column, ddl in (
+            ("member_since", "member_since TEXT"),
+            ("member_discount_pct", "member_discount_pct REAL"),
+            ("member_enrollment_id", "member_enrollment_id INTEGER"),
+        ):
+            _ensure_column(conn, "customers", column, ddl)
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS campaign_content (
@@ -738,7 +761,8 @@ def authorize_order(phone: str, delivery_estimate: str = None) -> dict:
 def get_latest_authorized_order(phone: str):
     with _connection() as conn:
         row = conn.execute(
-            "SELECT * FROM orders WHERE phone = ? AND status = 'autorizado' ORDER BY id DESC LIMIT 1", (phone,)
+            "SELECT * FROM orders WHERE phone = ? AND status = 'autorizado' AND COALESCE(kind, 'pedido') != 'inscripcion' "
+            "ORDER BY id DESC LIMIT 1", (phone,)
         ).fetchone()
         return dict(row) if row else None
 
@@ -749,6 +773,7 @@ def mark_order_received(phone: str):
     with _connection() as conn:
         row = conn.execute(
             "SELECT id FROM orders WHERE phone = ? AND status = 'autorizado' AND received_at IS NULL "
+            "AND COALESCE(kind, 'pedido') != 'inscripcion' "
             "ORDER BY id DESC LIMIT 1",
             (phone,),
         ).fetchone()
@@ -794,7 +819,8 @@ def get_active_enrollment(phone: str):
     equipo (sigue en curso: falta INE, falta rostro, o ya está completa pero sin enviar)."""
     with _connection() as conn:
         row = conn.execute(
-            "SELECT * FROM enrollments WHERE phone = ? AND status != 'enviado' ORDER BY id DESC LIMIT 1",
+            "SELECT * FROM enrollments WHERE phone = ? AND status != 'enviado' AND flow_stage IS NULL "
+            "ORDER BY id DESC LIMIT 1",
             (phone,),
         ).fetchone()
         return dict(row) if row else None
@@ -837,7 +863,8 @@ def confirm_enrollment(phone: str, tiempo_reflejo: str) -> dict:
     prefijo). Solo aplica a inscripciones ya enviadas al equipo (status='enviado')."""
     with _connection() as conn:
         row = conn.execute(
-            "SELECT * FROM enrollments WHERE phone = ? AND status = 'enviado' ORDER BY id DESC LIMIT 1",
+            "SELECT * FROM enrollments WHERE phone = ? AND status = 'enviado' AND flow_stage IS NULL "
+            "ORDER BY id DESC LIMIT 1",
             (phone,),
         ).fetchone()
         if not row:
@@ -1708,3 +1735,183 @@ def get_distributor_id_history(distributor_id: str, exclude_order_id: int = None
             for r in uses[-5:]
         ],
     }
+
+
+# ---------------------------------------------------------------------------
+# Alta de socios con pago (Ara) e identidad (Belén/Yeni)
+# ---------------------------------------------------------------------------
+
+ENROLLMENT_OPEN_STAGES = ("pago_pendiente", "pago_en_revision", "identidad_pendiente", "revision_identidad")
+
+
+def create_enrollment_flow(origin: str, sponsor_phone: str = None, sponsor_id: str = None,
+                           sponsor_name: str = None, prospect_phone: str = None, full_name: str = None) -> int:
+    """Alta nueva del flujo con pago. `phone` es el del prospecto (vacío hasta que el
+    patrocinador lo da en el flujo patrocinado)."""
+    with _connection() as conn:
+        return conn.execute(
+            "INSERT INTO enrollments (phone, sponsor_distributor_number, sponsor_name, full_name, flow_stage, "
+            "origin, sponsor_phone) VALUES (?, ?, ?, ?, 'pago_pendiente', ?, ?)",
+            (prospect_phone or "", sponsor_id, sponsor_name, full_name, origin, sponsor_phone),
+        ).lastrowid
+
+
+def create_enrollment_payment_order(payer_phone: str, enrollment_id: int, product: str, amount: str) -> int:
+    """Orden de pago de la cuota: entra directo a 'pendiente_pago' (no hay envío que cotizar)."""
+    with _connection() as conn:
+        order_id = conn.execute(
+            "INSERT INTO orders (phone, product, amount_expected, status, kind, enrollment_id) "
+            "VALUES (?, ?, ?, 'pendiente_pago', 'inscripcion', ?)",
+            (payer_phone, product, amount, enrollment_id),
+        ).lastrowid
+        conn.execute("UPDATE enrollments SET order_id = ? WHERE id = ?", (order_id, enrollment_id))
+        return order_id
+
+
+def create_gift_order(phone: str, product: str, enrollment_id: int) -> int:
+    """Pedido del regalo de bienvenida: producto en $0, el envío se cotiza como un pedido normal."""
+    with _connection() as conn:
+        return conn.execute(
+            "INSERT INTO orders (phone, product, amount_expected, status, kind, enrollment_id) "
+            "VALUES (?, ?, '$0', 'cotizando', 'regalo_inscripcion', ?)",
+            (phone, product, enrollment_id),
+        ).lastrowid
+
+
+def set_enrollment_prospect(enrollment_id: int, phone: str, full_name: str) -> None:
+    with _connection() as conn:
+        conn.execute(
+            "UPDATE enrollments SET phone = ?, full_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (phone, full_name, enrollment_id),
+        )
+
+
+def set_enrollment_stage(enrollment_id: int, stage: str, **fields) -> None:
+    """Cambia la etapa y, si se dan, otros campos permitidos del alta."""
+    allowed = {"status", "payment_approved_by", "ping_message_id", "ping_failed_notified", "approved_by",
+               "rejection_reason", "ine_media_id", "face_media_id"}
+    assigns, values = ["flow_stage = ?", "updated_at = CURRENT_TIMESTAMP"], [stage]
+    for key, value in fields.items():
+        if key not in allowed:
+            raise ValueError(f"Campo no permitido: {key}")
+        assigns.append(f"{key} = ?")
+        values.append(value)
+    with _connection() as conn:
+        conn.execute(f"UPDATE enrollments SET {', '.join(assigns)} WHERE id = ?", (*values, enrollment_id))
+
+
+def set_enrollment_ping(enrollment_id: int, message_id: str = None) -> None:
+    with _connection() as conn:
+        conn.execute(
+            "UPDATE enrollments SET ping_message_id = ?, ping_failed_notified = 0 WHERE id = ?",
+            (message_id, enrollment_id),
+        )
+
+
+def mark_ping_failure_notified(enrollment_id: int) -> bool:
+    """True solo la primera vez (para avisar al patrocinador una sola vez por ping)."""
+    with _connection() as conn:
+        return conn.execute(
+            "UPDATE enrollments SET ping_failed_notified = 1 WHERE id = ? AND ping_failed_notified = 0",
+            (enrollment_id,),
+        ).rowcount > 0
+
+
+def get_enrollment_by_order(order_id: int):
+    with _connection() as conn:
+        row = conn.execute("SELECT * FROM enrollments WHERE order_id = ?", (order_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def get_identity_pending_enrollment(phone: str):
+    """Alta del flujo nuevo que espera INE/selfie de este teléfono (comparado por 10 dígitos)."""
+    last10 = (phone or "")[-10:]
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM enrollments WHERE flow_stage = 'identidad_pendiente' AND phone != '' "
+            "AND substr(phone, -10) = ? ORDER BY id DESC LIMIT 1",
+            (last10,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def get_open_enrollment_for_prospect(phone: str):
+    """Alta en curso (cualquier etapa abierta) donde este teléfono es el prospecto."""
+    last10 = (phone or "")[-10:]
+    placeholders = ", ".join("?" for _ in ENROLLMENT_OPEN_STAGES)
+    with _connection() as conn:
+        row = conn.execute(
+            f"SELECT * FROM enrollments WHERE flow_stage IN ({placeholders}) AND phone != '' "
+            f"AND substr(phone, -10) = ? ORDER BY id DESC LIMIT 1",
+            (*ENROLLMENT_OPEN_STAGES, last10),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def get_open_enrollment_by_sponsor(sponsor_phone: str):
+    placeholders = ", ".join("?" for _ in ENROLLMENT_OPEN_STAGES)
+    with _connection() as conn:
+        row = conn.execute(
+            f"SELECT * FROM enrollments WHERE origin = 'patrocinador' AND sponsor_phone = ? "
+            f"AND flow_stage IN ({placeholders}) ORDER BY id DESC LIMIT 1",
+            (sponsor_phone, *ENROLLMENT_OPEN_STAGES),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def get_enrollment_for_review(phone_digits: str):
+    last10 = (phone_digits or "")[-10:]
+    if len(last10) < 10:
+        return None
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM enrollments WHERE flow_stage = 'revision_identidad' AND substr(phone, -10) = ? "
+            "ORDER BY id DESC LIMIT 1",
+            (last10,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def get_enrollment_by_ping(message_id: str):
+    if not message_id:
+        return None
+    with _connection() as conn:
+        row = conn.execute("SELECT * FROM enrollments WHERE ping_message_id = ?", (message_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def list_enrollments_for_review() -> list:
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM enrollments WHERE flow_stage = 'revision_identidad' ORDER BY updated_at"
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def activate_member(phone: str, enrollment_id: int, discount_pct: float, approved_by: str = None) -> None:
+    """Socio activo: inscripción confirmada (cuenta en métricas) y descuento de por vida."""
+    upsert_customer(phone)
+    with _connection() as conn:
+        conn.execute(
+            "UPDATE enrollments SET flow_stage = 'activo', status = 'confirmado', approved_by = ?, "
+            "activated_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (approved_by, enrollment_id),
+        )
+        conn.execute(
+            "UPDATE customers SET member_since = CURRENT_TIMESTAMP, member_discount_pct = ?, "
+            "member_enrollment_id = ?, updated_at = CURRENT_TIMESTAMP WHERE phone = ?",
+            (discount_pct, enrollment_id, phone),
+        )
+
+
+def get_member(phone: str):
+    """Socio activado por TEO (comparado por 10 dígitos), o None."""
+    last10 = (phone or "")[-10:]
+    if len(last10) < 10:
+        return None
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM customers WHERE member_since IS NOT NULL AND substr(phone, -10) = ? LIMIT 1",
+            (last10,),
+        ).fetchone()
+        return dict(row) if row else None

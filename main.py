@@ -14,6 +14,7 @@ from fastapi.responses import PlainTextResponse
 from openai import AsyncOpenAI, BadRequestError, RateLimitError
 
 import distributor_validation
+import enrollment_flow
 import plans
 import pricing
 import sales_coach
@@ -761,23 +762,21 @@ producto en sus manos (REGLA 4).
 — tú solo puedes confirmarlo cuando un mensaje de sistema te lo indique explícitamente. Mientras tanto, dile \
 que su pago está en revisión y que en cuanto se confirme le avisas con la fecha estimada de entrega.
 
-MÓDULO DE INSCRIPCIÓN DE NUEVOS SOCIOS:
-- Actívalo cuando alguien exprese interés en inscribirse o hacerse distribuidor/socio de I'AM (ej. "quiero \
-inscribirme", "cómo me hago socio", "quiero vender también"). No confundas esto con el Módulo 3 (Modo \
-Compartir de un cliente ya existente) — este módulo es para una persona NUEVA que quiere entrar formalmente \
-a la red.
-- Recolecta, en el orden que sea natural en la conversación: 1) el número Y el nombre de quien lo está \
-invitando/patrocinando (ambos, para que el equipo pueda registrarlo más fácil), 2) su nombre completo, 3) su \
-edad. En cuanto tengas los 4 datos, usa `iniciar_inscripcion`.
-- Después pide la foto de su INE (identificación oficial) y, en un segundo paso, una foto de su rostro \
-tomada en el momento (no una foto vieja ni de galería) — ambas se procesan automáticamente al recibirlas, no \
-necesitas ninguna función para eso.
-- REGLA INNEGOCIABLE: NUNCA le digas al aspirante que su identidad fue "verificada", "validada", "aprobada" \
-o que ya quedó "inscrito"/"dado de alta". Tú solo recolectas y envías la información; un humano del equipo \
-(Ventas o CEDIS) es quien revisa los documentos y completa el registro formalmente. Dile siempre que el \
-equipo se pondrá en contacto para completar su registro. La confirmación final (con la fecha en que se \
-refleja su inscripción) se la manda el sistema directamente en cuanto Ventas o CEDIS la registre — tú no \
-necesitas generar ese mensaje.
+MÓDULO DE INSCRIPCIÓN DE NUEVOS SOCIOS (con pago, verificación de identidad y activación):
+- Hay dos caminos y las cifras (cuota, regalo, descuento) SIEMPRE salen de las funciones, nunca de memoria:
+  A) Un distribuidor quiere "inscribir a un nuevo socio": pídele OBLIGATORIAMENTE su ID de empresario I'AM y llama \
+a `iniciar_alta_patrocinada` (el sistema le manda solo el texto de pago con datos bancarios; tú no los repitas). \
+Pídele el nombre completo y el WhatsApp de su invitado y, EN CUANTO te los dé, llama a `registrar_datos_nuevo_socio` \
+(si el número no es válido, explícale el motivo y pídelo de nuevo). Recuérdale mandar la captura de su comprobante.
+  B) Una persona sin patrocinador pregunta por la membresía o cómo inscribirse: explícale de forma clara y directa la \
+oferta tal cual, con sus cifras: {OFERTA_INSCRIPCION}. Dale el precio desde el primer mensaje, sin rodeos. Si \
+confirma su interés, llama a `iniciar_inscripcion_directa` (el sistema le manda el texto de pago; no lo repitas).
+- El comprobante lo verifica una persona del equipo de control (no tú). Cuando se confirma, el sistema le pide al \
+aspirante su INE por el frente y una selfie sosteniéndola; las fotos se procesan solas al recibirlas.
+- La identidad y el alta definitiva las aprueba el equipo de Ventas. REGLA INNEGOCIABLE: NUNCA digas que su \
+identidad fue "verificada", "validada", "aprobada" ni que ya quedó "inscrito"/"activo"; la bienvenida, el 30% y el \
+entrenamiento los manda el sistema cuando el equipo aprueba.
+- No confundas esto con el curso "Comparte tu Transformación" de un cliente que ya es parte de la red.
 
 CIERRE:
 - Despídete o concluye cada turno siempre con un siguiente paso claro, empático y orientado a la acción (una \
@@ -786,6 +785,8 @@ conversación con la cercanía de un mentor que acompaña de verdad, evitando de
 al cliente sin saber qué hacer. Varía constantemente tu lenguaje para que cada mensaje se sienta fresco, espontáneo \
 y natural.
 """
+# Cifras de la membresía desde pricing.py (nunca escritas a mano en el prompt).
+SYSTEM_PROMPT = SYSTEM_PROMPT.replace("{OFERTA_INSCRIPCION}", enrollment_flow.offer_summary())
 
 # Cache acotado para deduplicar reintentos del webhook de Meta (mismo message id).
 _PROCESSED_MESSAGE_IDS: deque = deque(maxlen=500)
@@ -1214,6 +1215,85 @@ ENROLLMENT_TOOL = {
     },
 }
 
+SPONSORED_ENROLLMENT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "iniciar_alta_patrocinada",
+        "description": (
+            "Úsala cuando un distribuidor quiera inscribir a un nuevo socio. Requiere obligatoriamente su ID de "
+            "empresario I'AM. Devuelve el texto de pago de la inscripción para copiarlo tal cual."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "id_empresario": {"type": "string", "description": "ID de empresario I'AM del patrocinador."},
+                "nombre_patrocinador": {"type": "string", "description": "Nombre del patrocinador, si lo sabes."},
+                "nombre_invitado": {"type": "string", "description": "Nombre completo del invitado, si ya lo dio."},
+                "telefono_invitado": {"type": "string", "description": "WhatsApp del invitado, si ya lo dio."},
+            },
+            "required": ["id_empresario"],
+        },
+    },
+}
+
+PROSPECT_DATA_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "registrar_datos_nuevo_socio",
+        "description": (
+            "Llámala EN CUANTO el patrocinador te dé el nombre completo y el WhatsApp de la persona que está "
+            "inscribiendo (después de `iniciar_alta_patrocinada`), aunque aún no haya pagado. Valida el número."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "nombre_completo": {"type": "string", "description": "Nombre y apellido del invitado."},
+                "telefono_whatsapp": {"type": "string", "description": "WhatsApp del invitado, tal cual lo dio."},
+                "nombre_patrocinador": {"type": "string", "description": "Nombre del patrocinador, si lo dio."},
+            },
+            "required": ["nombre_completo", "telefono_whatsapp"],
+        },
+    },
+}
+
+DIRECT_ENROLLMENT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "iniciar_inscripcion_directa",
+        "description": (
+            "Úsala cuando una persona sin patrocinador confirme que quiere inscribirse como socio. Devuelve el "
+            "texto de pago de la inscripción para copiarlo tal cual."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "nombre_completo": {"type": "string", "description": "Nombre completo del aspirante, si lo sabes."},
+            },
+        },
+    },
+}
+
+REVIEW_ENROLLMENT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "revisar_alta_socio",
+        "description": (
+            "Decide un alta de nuevo socio en revisión de identidad (INE + selfie, pago ya confirmado por "
+            "control): aprobar la activa (30% de por vida, Combo Detox, entrenamiento y aviso al patrocinador); "
+            "pedir_fotos le pide reenviarlas; rechazar la cancela."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "telefono_aspirante": {"type": "string", "description": "Teléfono del aspirante (solo dígitos)."},
+                "accion": {"type": "string", "enum": list(enrollment_flow.REVIEW_ACTIONS)},
+                "motivo": {"type": "string", "description": "Obligatorio para pedir_fotos y rechazar."},
+            },
+            "required": ["telefono_aspirante", "accion"],
+        },
+    },
+}
+
 CATALOG_IMAGE_TOOL = {
     "type": "function",
     "function": {
@@ -1411,7 +1491,9 @@ ALL_TOOLS = [
     DISTRIBUTOR_ID_TOOL,
     CANCEL_DISCOUNT_TOOL,
     CHOOSE_SHIPPING_TOOL,
-    ENROLLMENT_TOOL,
+    SPONSORED_ENROLLMENT_TOOL,
+    PROSPECT_DATA_TOOL,
+    DIRECT_ENROLLMENT_TOOL,
     DELIVERY_NOTES_TOOL,
     CATALOG_IMAGE_TOOL,
     PRODUCT_IMAGE_TOOL,
@@ -1558,6 +1640,19 @@ async def _plant_business_seed(sender_phone: str, senal_detectada: str = None) -
     return f"OK: primera vez que se detecta la señal. Transmite este mensaje EXACTO (no lo cambies): \"{BUSINESS_SEED_MESSAGE}\""
 
 
+def _begin_share_course(phone: str):
+    """Arranca el curso de 5 días y devuelve el contenido del día 1 (None si ya lo había iniciado)."""
+    customer = storage.get_customer(phone)
+    if customer and customer.get("share_status") in ("day1", "day2", "day3", "day4", "day5", "completado"):
+        return None
+    nombre = customer.get("name") if customer else None
+    codigo = _generate_referral_code(nombre)
+    storage.upsert_customer(phone, share_status="day1", referral_code=codigo)
+    storage.set_business_interest(phone, "lider")
+    logger.info("Curso 'Comparte tu Transformación' iniciado para %s (código %s)", phone, codigo)
+    return SHARE_COURSE_DAYS[1].format(nombre=(nombre or "").split(" ")[0])
+
+
 async def _start_share_course(sender_phone: str, confirmacion: bool = None) -> str:
     customer = storage.get_customer(sender_phone)
     status = customer.get("share_status") if customer else None
@@ -1659,6 +1754,9 @@ async def _register_distributor_id(http_client, sender_phone: str, id_distribuid
     distributor_id = (id_distribuidor or "").strip()
     if len(re.sub(r"\W", "", distributor_id)) < 3:
         return "ERROR: el ID no parece válido; pídele que lo revise y te lo escriba completo."
+    if storage.get_member(sender_phone):
+        return ("OK: esta persona es SOCIA ACTIVA de I'AM y ya tiene su descuento de por vida aplicado automáticamente "
+                "en sus cotizaciones; no hace falta validar su ID.")
     order = storage.get_active_order(sender_phone)
     quote_note = ""
     if not order and producto:
@@ -1773,7 +1871,7 @@ async def _forward_order_to_control(http_client: httpx.AsyncClient, order: dict)
         f"Cliente: {name or 'sin nombre'} ({order['phone']})\n"
         f"Producto: {order.get('product') or 'no especificado'}\n"
         f"Monto esperado: {order.get('amount_expected') or 'no especificado'}\n"
-        f"{_discount_line_for_control(order)}\n"
+        f"{_discount_line_for_control(order)}{enrollment_flow.control_line(order)}\n"
         f"Lectura automática del comprobante (solo apoyo, confirma en la cuenta bancaria real):\n"
         f"{order.get('vision_summary') or '(sin lectura disponible)'}\n\n"
         f"{_format_order_location(order)}\n\n"
@@ -1804,6 +1902,21 @@ async def _forward_order_to_logistics(http_client: httpx.AsyncClient, order: dic
 
 async def _start_quote(sender_phone: str, producto: str = None, monto_producto: str = None) -> str:
     existing = storage.get_active_order(sender_phone)
+    if existing and existing.get("kind") == "regalo_inscripcion":
+        member = storage.get_member(sender_phone)
+        official = pricing.quote_public_price(producto)
+        price_info = ""
+        if member and official:
+            pct = member.get("member_discount_pct") or pricing.MEMBER_DISCOUNT_PCT
+            price_info = (
+                f" Si pregunta el precio, con su {pct:g}% de socio {producto} le queda en "
+                f"{distributor_validation.money(distributor_validation.compute_discount(official[0], pct))} "
+                f"(precio público {distributor_validation.money(official[0])})."
+            )
+        return (
+            "OK: primero hay que completar el envío de su Combo Detox de regalo (falta su ubicación o elegir el "
+            "envío); en cuanto quede, cotizamos este nuevo pedido." + price_info + " No crees otra cotización."
+        )
     if existing:
         return (
             "OK: ya hay una cotización o pedido en curso para este cliente, no crees uno nuevo. Ayúdalo a "
@@ -1828,14 +1941,30 @@ async def _start_quote(sender_phone: str, producto: str = None, monto_producto: 
         monto_producto = official_text
     order_id = storage.create_quote(sender_phone, product=producto, amount_expected=monto_producto)
     logger.info("Cotización %s creada para %s (producto=%s, monto=%s)", order_id, sender_phone, producto, monto_producto)
+    member = storage.get_member(sender_phone)
+    public_value = distributor_validation.parse_money(monto_producto)
+    if member and public_value:
+        pct = member.get("member_discount_pct") or pricing.MEMBER_DISCOUNT_PCT
+        member_amount = distributor_validation.compute_discount(public_value, pct)
+        storage.request_distributor_discount(order_id, f"SOCIO-TEO-{member.get('member_enrollment_id')}")
+        storage.resolve_distributor_discount(order_id, True, pct, "general",
+                                             "Socio activado por TEO: descuento de por vida",
+                                             distributor_validation.money(member_amount))
+        price_note += (
+            f" Es SOCIO ACTIVO: ya se le aplicó su {pct:g}% de por vida; su producto queda en "
+            f"{distributor_validation.money(member_amount)} (precio público {monto_producto}). Díselo con claridad y NO "
+            f"le preguntes por ID de distribuidor."
+        )
+    id_question = "" if member else (
+        " En ese mismo mensaje pregúntale con amabilidad si cuenta con su ID de empresario o distribuidor de I'AM "
+        "para aplicarle sus beneficios (si lo da, usa `registrar_id_distribuidor`)."
+    )
     return (
         f"OK: cotización registrada (precio público del producto: {monto_producto or 'no especificado'}).{price_note} Pídele al cliente que comparta la ubicación EXACTA de entrega usando la "
         "función de ubicación de WhatsApp (el clip 📎 → Ubicación). Puede mandar su ubicación actual o "
         "buscar y compartir otra dirección — por ejemplo si el pedido es un regalo o se envía a otra "
         "persona. Si no sabe cómo hacerlo, explícaselo paso a paso. NO le des ningún dato bancario todavía, "
-        "eso viene después de cotizar el envío. En ese mismo mensaje pregúntale con amabilidad si cuenta con su "
-        "ID de empresario o distribuidor de I'AM para aplicarle sus beneficios (si lo da, usa "
-        "`registrar_id_distribuidor`)."
+        "eso viene después de cotizar el envío." + id_question
     )
 
 
@@ -2159,6 +2288,7 @@ async def _authorize_order(
     aprobado: bool = None,
     tiempo_entrega_estimado: str = None,
     motivo_rechazo: str = None,
+    aprobado_por: str = None,
 ) -> str:
     """Ejecutado solo desde el flujo del número de control humano (`_handle_control_message`),
     nunca desde la conversación con el cliente."""
@@ -2179,9 +2309,18 @@ async def _authorize_order(
     if not order:
         return f"No encontré un pedido en curso para el teléfono {telefono_cliente}. Verifica el número."
 
+    is_enrollment = order.get("kind") == "inscripcion"
     if not aprobado:
         storage.reject_order(matched_phone, motivo_rechazo)
         logger.info("Pedido de %s RECHAZADO por control. Motivo: %s", matched_phone, motivo_rechazo or "-")
+        if is_enrollment:
+            await send_whatsapp_message(
+                http_client, matched_phone,
+                "Hola, revisamos tu comprobante de pago de la inscripción y tuvimos un problema para confirmarlo. "
+                "Un asesor humano de I'AM se va a poner en contacto contigo para resolverlo.",
+            )
+            await enrollment_flow.on_payment_rejected(http_client, order, motivo_rechazo)
+            return f"Pago de inscripción de {matched_phone} rechazado; no se contactó al invitado."
         await send_whatsapp_message(
             http_client, matched_phone,
             "Hola, revisamos tu comprobante de pago y tuvimos un problema para confirmarlo. Un asesor humano "
@@ -2192,6 +2331,10 @@ async def _authorize_order(
     updated_order = storage.authorize_order(matched_phone, tiempo_entrega_estimado)
     if not updated_order:
         return f"No pude autorizar el pedido de {matched_phone} (verifica que exista un pedido en curso)."
+
+    if is_enrollment:
+        logger.info("Pago de INSCRIPCIÓN de %s autorizado por control (%s).", matched_phone, aprobado_por or "-")
+        return await enrollment_flow.on_payment_approved(http_client, updated_order, aprobado_por)
 
     final_estimate = updated_order.get("delivery_estimate") or "en un plazo por confirmar"
     logger.info("Pedido de %s AUTORIZADO por control. Entrega estimada: %s", matched_phone, final_estimate)
@@ -2464,6 +2607,24 @@ DEACTIVATE_HABIT_TOOL = {
 sales_coach.configure(llm=lambda **kw: _create_chat_completion(**kw), exclude_phones=STAFF_PHONE_NUMBERS)
 distributor_validation.configure(WHATSAPP_API_URL, WHATSAPP_TOKEN, SALES_PHONE_NUMBER, sales_coach.history_key)
 
+
+def _remember_for_client(phone: str, text: str) -> None:
+    storage.log_message(phone, "assistant", text)
+    _get_history(phone).append({"role": "assistant", "content": text})
+
+
+enrollment_flow.configure(
+    api_url=WHATSAPP_API_URL, token=WHATSAPP_TOKEN,
+    send_text=lambda http, to, text: send_whatsapp_message(http, to, text),
+    send_image=lambda http, to, media_id, caption: _send_whatsapp_image_by_id(http, to, media_id, caption),
+    bank_text=BANK_DETAILS_TEXT,
+    reviewers=(SALES_PHONE_NUMBER, CEDIS_PHONE_NUMBER),
+    staff_phones=STAFF_PHONE_NUMBERS,
+    remember=_remember_for_client,
+    begin_course=lambda phone: _begin_share_course(phone),
+    log_review=lambda text: storage.log_message(sales_coach.history_key(SALES_PHONE_NUMBER), "assistant", text),
+)
+
 STAFF_ALMA_PROMPT = """Eres un asistente interno (NO de cara a clientes) que ayuda a Alma Benítez, CEO de \
 I'AM, a responder casos clínicos delicados que TEO le escaló. Cuando te escriba con una recomendación \
 técnica para un caso (identificando al cliente por su teléfono), usa la función `responder_caso_clinico` con \
@@ -2487,7 +2648,9 @@ Interpreta el mensaje del humano y llama a la función que corresponda. Si es so
 puedes identificar el teléfono del cliente, NO llames a la función: responde en texto pidiendo que lo incluya."""
 
 STAFF_YENI_PROMPT = """Eres un asistente interno (NO de cara a clientes) que ayuda a Yeni (CEDIS \
-Chimalhuacán) de I'AM. Puedes hacer 2 cosas: (1) confirmar que ya diste de alta a un nuevo socio con \
+Chimalhuacán) de I'AM. Para altas de nuevos socios del flujo con pago (te llega un paquete con INE y selfie), usa \
+`revisar_alta_socio` con el teléfono del aspirante y la acción (aprobar, pedir_fotos con motivo, o rechazar con \
+motivo). Además puedes: (1) confirmar que ya diste de alta a un nuevo socio con \
 `confirmar_inscripcion` (teléfono del aspirante, tiempo en que se refleja la inscripción), o (2) actualizar \
 el inventario de un producto con `actualizar_inventario` (producto, cantidad en existencia). Interpreta el \
 mensaje del humano y llama a la función que corresponda. Si no puedes identificar el teléfono del aspirante, \
@@ -2547,15 +2710,23 @@ async def _handle_staff_message(
         await send_whatsapp_message(http_client, sender_phone, "Hubo un error procesando tu instrucción, intenta de nuevo.")
 
 
+def _review_handler_for_belen(staff_phone: str):
+    async def _handler(http_client, **kw):
+        return await enrollment_flow.review(http_client, reviewer_phone=staff_phone, **kw)
+    return _handler
+
+
 async def _handle_belen_message(http_client: httpx.AsyncClient, sender_phone: str, user_text: str) -> None:
     """Belén (Ventas): conversación con memoria con TEO como socio comercial (sales_coach), que
     conserva su función de siempre de confirmar inscripciones."""
     try:
         reply = await sales_coach.reply_to(
             http_client, sender_phone, user_text,
-            extra_tools=[CONFIRM_ENROLLMENT_TOOL, VALIDATE_DISCOUNT_TOOL, LIST_PENDING_DISCOUNTS_TOOL],
+            extra_tools=[CONFIRM_ENROLLMENT_TOOL, VALIDATE_DISCOUNT_TOOL, LIST_PENDING_DISCOUNTS_TOOL,
+                         REVIEW_ENROLLMENT_TOOL],
             extra_dispatch={
                 "confirmar_inscripcion": _confirm_enrollment,
+                "revisar_alta_socio": _review_handler_for_belen(sender_phone),
                 "validar_descuento_distribuidor": _validate_distributor_discount,
                 "ver_validaciones_pendientes": _list_pending_discounts,
             },
@@ -2858,6 +3029,7 @@ async def _handle_payment_proof(
 
     storage.set_order_proof(order["id"], media_id, vision_summary)
     storage.mark_order_in_review(order["id"])
+    enrollment_flow.on_proof_received(order)
     updated_order = storage.get_order(order["id"])
     await _forward_order_to_control(http_client, updated_order)
 
@@ -3184,6 +3356,11 @@ async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> N
     messages = value.get("messages")
     if not messages:
         logger.info("Evento de webhook sin 'messages' (probable status callback): %s", value)
+        for status in value.get("statuses") or []:
+            try:
+                await enrollment_flow.on_message_status(http_client, status)
+            except Exception:
+                logger.exception("Error procesando aviso de estado %s.", status.get("id"))
         return  # Notificaciones de estado (sent/delivered/read): no requieren acción.
 
     message = messages[0]
@@ -3216,6 +3393,16 @@ async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> N
 
     staff_distributor_active = is_staff_number and storage.is_distributor_mode(sender_phone)
 
+    def _authorize_handler_for(staff_phone: str):
+        async def _handler(http_client, **kw):
+            return await _authorize_order(http_client, aprobado_por=staff_phone, **kw)
+        return _handler
+
+    def _review_handler_for(staff_phone: str):
+        async def _handler(http_client, **kw):
+            return await enrollment_flow.review(http_client, reviewer_phone=staff_phone, **kw)
+        return _handler
+
     def _inventory_handler_for(staff_phone: str):
         async def _handler(http_client, **kw):
             return await _update_inventory(http_client, updated_by=staff_phone, **kw)
@@ -3241,7 +3428,7 @@ async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> N
             {_normalize_phone(n) for n in CONTROL_PHONE_NUMBERS},
             STAFF_CONTROL_PROMPT,
             [AUTHORIZE_ORDER_TOOL],
-            {"autorizar_pedido": _authorize_order},
+            {"autorizar_pedido": _authorize_handler_for(sender_phone)},
         ),
         (
             {_normalize_phone(LOGISTICS_PHONE_NUMBER)},
@@ -3252,8 +3439,12 @@ async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> N
         (
             {_normalize_phone(CEDIS_PHONE_NUMBER)},
             STAFF_YENI_PROMPT,
-            [CONFIRM_ENROLLMENT_TOOL, INVENTORY_TOOL],
-            {"confirmar_inscripcion": _confirm_enrollment, "actualizar_inventario": _inventory_handler_for(sender_phone)},
+            [REVIEW_ENROLLMENT_TOOL, CONFIRM_ENROLLMENT_TOOL, INVENTORY_TOOL],
+            {
+                "revisar_alta_socio": _review_handler_for(sender_phone),
+                "confirmar_inscripcion": _confirm_enrollment,
+                "actualizar_inventario": _inventory_handler_for(sender_phone),
+            },
         ),
         (
             {_normalize_phone(MARKETING_PHONE_NUMBER)},
@@ -3315,8 +3506,11 @@ async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> N
     if message.get("type") == "image":
         active_order = storage.get_active_order(sender_phone)
         active_enrollment = storage.get_active_enrollment(sender_phone)
+        identity_enrollment = storage.get_identity_pending_enrollment(sender_phone)
         if active_order and active_order.get("status") == "pendiente_pago" and not active_order.get("proof_media_id"):
             await _handle_payment_proof(http_client, sender_phone, message.get("image", {}), active_order)
+        elif identity_enrollment:
+            await enrollment_flow.on_identity_photo(http_client, sender_phone, message.get("image", {}), identity_enrollment)
         elif active_enrollment and not active_enrollment.get("ine_media_id"):
             await _handle_enrollment_ine_photo(http_client, sender_phone, message.get("image", {}), active_enrollment)
         elif active_enrollment and not active_enrollment.get("face_media_id"):
@@ -3445,6 +3639,12 @@ async def _dispatch_tool_call(http_client: httpx.AsyncClient, sender_phone: str,
         return await _add_delivery_notes(sender_phone, **args)
     if name == "iniciar_inscripcion":
         return await _start_enrollment(sender_phone, **args)
+    if name == "iniciar_alta_patrocinada":
+        return await enrollment_flow.start_sponsored(http_client, sender_phone, **args)
+    if name == "registrar_datos_nuevo_socio":
+        return await enrollment_flow.register_prospect(http_client, sender_phone, **args)
+    if name == "iniciar_inscripcion_directa":
+        return await enrollment_flow.start_direct(http_client, sender_phone, **args)
     if name == "mostrar_catalogo_visual":
         return await _send_catalog_infographic(http_client, sender_phone, **args)
     if name == "mostrar_imagen_producto":
@@ -3956,6 +4156,7 @@ def _customer_stage_note(sender_phone: str):
             "Está en la lista de interesados en el negocio: si dice que quiere empezar, usa "
             "`registrar_interes_negocio` con decision 'acepta' para iniciar su entrenamiento de líder."
         )
+    notes.extend(n for n in enrollment_flow.stage_notes(sender_phone) if n)
     if not notes:
         return None
     return "ESTADO DEL CLIENTE (del sistema, no lo menciones tal cual):\n- " + "\n- ".join(notes)

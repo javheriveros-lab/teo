@@ -71,3 +71,24 @@ def quote_public_price(product_or_combo: str):
             return sum(price for _, price in breakdown), breakdown
     price = _single_price(norm)
     return (price, [(product_or_combo.strip(), price)]) if price is not None else None
+
+
+# --- Membresía de socio (inscripción) ---------------------------------------
+ENROLLMENT_FEE = 1720              # MXN, cuota única de inscripción
+ENROLLMENT_GIFT = "Combo Detox"    # regalo de bienvenida incluido en la cuota
+MEMBER_DISCOUNT_PCT = 30           # descuento de por vida en todo el catálogo
+
+
+def enrollment_offer() -> dict:
+    """Cifras de la membresía para cualquier texto que las mencione (nunca escritas a mano)."""
+    gift = quote_public_price(ENROLLMENT_GIFT)
+    return {
+        "fee": ENROLLMENT_FEE,
+        "gift": ENROLLMENT_GIFT,
+        "gift_value": gift[0] if gift else None,
+        "discount_pct": MEMBER_DISCOUNT_PCT,
+    }
+
+
+def member_price(public_amount: float) -> float:
+    return round(public_amount * (1 - MEMBER_DISCOUNT_PCT / 100), 2)

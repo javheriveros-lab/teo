@@ -1,4 +1,5 @@
 import asyncio
+import contextvars
 import json
 import logging
 import os
@@ -21,6 +22,7 @@ import pricing
 import sales_coach
 import shipping
 import storage
+import team_hours
 import vision
 from calendar_image import render_catalog_infographic, render_protocol_image, render_weekly_calendar
 from product_details import find_product_detail
@@ -728,6 +730,12 @@ los necesitas para armar el mensaje. Este módulo no lleva por ahora conteo auto
 automáticas: solo genera el script cuando te lo pidan explícitamente.
 
 MÓDULO DE PAGOS Y TRANSACCIONES (2 etapas — nunca te saltes el orden):
+
+HORARIO DEL EQUIPO: lunes a viernes de 9:00 a 20:00 y sábados de 9:00 a 15:00 (CDMX); domingo descansa. Tú \
+atiendes 24/7, pero la confirmación de pagos, las cotizaciones de envío y las validaciones las hace una persona. Si \
+alguien quiere comprar fuera de horario, llama igual a `iniciar_cotizacion`: el sistema le manda solo el pago de sus \
+productos con los datos bancarios y, con su captura, su número de turno; el envío se cotiza cuando el equipo confirme \
+su pago. Nunca prometas que alguien del equipo responderá fuera de horario.
 
 ETAPA 1 — Cotización de envío (antes de cualquier dato bancario):
 - Actívala en cuanto el cliente quiera saber el costo o tiempo de envío, o diga que está listo para comprar \
@@ -1821,6 +1829,14 @@ def _parse_money(value) -> float:
 async def _send_whatsapp_image_by_id(http_client: httpx.AsyncClient, to: str, media_id: str, caption: str = None) -> None:
     if not to or not media_id:
         return
+    if _hold_for_staff(to, "image", {"media_id": media_id, "caption": caption}):
+        return
+    await _raw_send_image(http_client, to, media_id, caption)
+
+
+async def _raw_send_image(http_client: httpx.AsyncClient, to: str, media_id: str, caption: str = None) -> None:
+    if not to or not media_id:
+        return
     headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}", "Content-Type": "application/json"}
     image_payload = {"id": media_id}
     if caption:
@@ -1871,6 +1887,11 @@ async def _register_distributor_id(http_client, sender_phone: str, id_distribuid
     await distributor_validation.notify_sales(http_client, storage.get_order(order["id"]))
     logger.info("ID de distribuidor %s registrado para %s (orden %s), enviado a validación.",
                 distributor_id, sender_phone, order["id"])
+    turn = team_hours.turn_if_unavailable(sender_phone, "ventas", "validacion", order["id"])
+    if turn:
+        return (f"OK: ID registrado. El equipo de Ventas retoma {team_hours.resume_text('ventas')}: dile con calidez que "
+                f"en ese momento validamos su ID y le llega por aquí su precio final, y que su número de turno es el "
+                f"#{turn}. NO menciones porcentajes ni montos con descuento.")
     return (
         "OK: ID enviado a validación con el equipo de Ventas. Dile con calidez que estamos validando su ID para "
         "aplicarle su beneficio, que mientras tanto puede seguir con la cotización de su envío y que en cuanto se "
@@ -1925,6 +1946,7 @@ async def _validate_distributor_discount(
         )
         if porcentaje is None:
             porcentaje = round(100 * (1 - discounted / public), 1)
+    team_hours.resolve(order["phone"], "ventas")
     updated = storage.resolve_distributor_discount(
         order["id"], bool(id_activo), float(porcentaje) if id_activo else None,
         alcance if id_activo else None, restricciones,
@@ -1934,6 +1956,10 @@ async def _validate_distributor_discount(
         return "ERROR: esa validación ya no está pendiente."
     customer = storage.get_customer(updated["phone"]) or {}
     text = distributor_validation.client_price_message(updated, customer.get("name"))
+    if updated.get("prepaid") and not updated.get("products_paid_at"):
+        storage.mark_order_prepaid(updated["id"], updated.get("amount_expected"))
+        text = text.replace("El costo del envío se suma en cuanto elijas tu opción de envío.",
+                            "Tu envío se cotiza en cuanto confirmemos el pago de tus productos.")
     if updated.get("status") == "pendiente_pago":
         text += (f"\n\nPara completar tu pedido, estos son los datos para tu depósito:\n\n{BANK_DETAILS_TEXT}\n\n"
                  f"Cuando lo hagas, mándame por aquí la captura de tu comprobante.")
@@ -1969,6 +1995,21 @@ async def _list_pending_discounts(http_client, **_ignored) -> str:
     )
 
 
+def _control_amount(order: dict) -> str:
+    if order.get("products_paid_at"):
+        return f"${_parse_money(order.get('shipping_cost')) or 0:,.0f} (SOLO envío)"
+    return order.get("amount_expected") or "no especificado"
+
+
+def _prepaid_line_for_control(order: dict) -> str:
+    if not order.get("prepaid"):
+        return ""
+    if order.get("products_paid_at"):
+        return (f"🧾 Productos ya confirmados ({order.get('products_amount')}); este comprobante es SOLO del envío.\n")
+    return ("🌙 Compra fuera de horario: este pago es SOLO de los productos; el envío se le cotiza en cuanto lo "
+            "confirmes.\n")
+
+
 async def _forward_order_to_control(http_client: httpx.AsyncClient, order: dict) -> None:
     customer = storage.get_customer(order["phone"])
     name = customer.get("name") if customer else None
@@ -1976,7 +2017,8 @@ async def _forward_order_to_control(http_client: httpx.AsyncClient, order: dict)
         f"📥 Nuevo pago reportado, pendiente de revisión.\n"
         f"Cliente: {name or 'sin nombre'} ({order['phone']})\n"
         f"Producto: {order.get('product') or 'no especificado'}\n"
-        f"Monto esperado: {order.get('amount_expected') or 'no especificado'}\n"
+        f"Monto esperado: {_control_amount(order)}\n"
+        f"{_prepaid_line_for_control(order)}"
         f"{_discount_line_for_control(order)}{enrollment_flow.control_line(order)}\n"
         f"Lectura automática del comprobante (solo apoyo, confirma en la cuenta bancaria real):\n"
         f"{order.get('vision_summary') or '(sin lectura disponible)'}\n\n"
@@ -2074,6 +2116,8 @@ async def _start_quote(sender_phone: str, producto: str = None, monto_producto: 
             f"{distributor_validation.money(member_amount)} (precio público {monto_producto}). Díselo con claridad y NO "
             f"le preguntes por su ID de empresario."
         )
+    if not team_hours.is_business_hours() and official:
+        return await _start_prepaid_purchase(http_client, sender_phone, order_id, producto, member)
     id_question = "" if member else (
         " En ese mismo mensaje pregúntale con amabilidad si cuenta con su ID de empresario o distribuidor de I'AM "
         "para aplicarle sus beneficios (si lo da, usa `registrar_id_distribuidor`)."
@@ -2085,6 +2129,45 @@ async def _start_quote(sender_phone: str, producto: str = None, monto_producto: 
         "persona. Si no sabe cómo hacerlo, explícaselo paso a paso. NO le des ningún dato bancario todavía, "
         "eso viene después de cotizar el envío." + id_question
     )
+
+
+async def _say_to_client(http_client, phone: str, text: str) -> None:
+    await send_whatsapp_message(http_client, phone, text)
+    _remember_for_client(phone, text)
+
+
+async def _start_prepaid_purchase(http_client, sender_phone: str, order_id: int, producto: str, member) -> str:
+    """Fuera de horario: el cliente paga primero sus productos por transferencia; el envío se cotiza
+    cuando Control confirme ese pago (así no espera una cotización que nadie puede aprobar de noche)."""
+    order = storage.get_order(order_id)
+    rest = (f"🌙 Nuestro equipo está descansando en este momento (atendemos {team_hours.schedule_text()}; "
+            f"regresamos {team_hours.opening_text()}).")
+    if order.get("discount_status") == "pendiente":
+        storage.mark_order_prepaid(order_id, order.get("amount_expected"))
+        text = (f"{rest} Tu beneficio de distribuidor se valida en cuanto el equipo regrese y en ese momento te llega "
+                f"por aquí tu precio final con los datos para pagar tus productos.")
+        if http_client is not None:
+            await _say_to_client(http_client, sender_phone, text)
+        return ("OK: compra fuera de horario registrada y YA le envié el aviso de que su descuento se valida al abrir. "
+                "No le des precio ni datos bancarios; acompáñalo con calidez." + ("" if http_client else f"\n{text}"))
+    amount = order.get("amount_expected")
+    storage.mark_order_prepaid(order_id, amount)
+    discount = (f" (ya con tu {order['discount_pct']:g}% de descuento; precio público {order.get('amount_public')})"
+                if order.get("discount_status") == "aprobado" else "")
+    ask_id = "" if member else ("\n\nSi tienes ID de empresario o distribuidor de I'AM, compártemelo ANTES de pagar "
+                                "para aplicarte tu beneficio.")
+    text = (f"{rest}\n\nPara que no tengas que esperar, puedes avanzar ya con el pago de tus productos:\n"
+            f"• {producto}: *{amount}*{discount}{ask_id}\n\nDatos para tu transferencia:\n\n{BANK_DETAILS_TEXT}\n\n"
+            f"Cuando la hagas, mándame aquí la captura y te doy tu número de turno. En cuanto el equipo confirme tu "
+            f"pago, cotizamos tu envío (se paga aparte).")
+    if http_client is not None:
+        await _say_to_client(http_client, sender_phone, text)
+    logger.info("Compra fuera de horario: orden %s de %s, productos %s.", order_id, sender_phone, amount)
+    return ("OK: compra fuera de horario: YA le envié el aviso de que el equipo descansa, el total de sus productos y "
+            "los datos bancarios. NO repitas cifras ni datos bancarios y NO le pidas ubicación todavía (el envío se "
+            "cotiza cuando confirmen su pago)."
+            + ("" if member else " Si te da su ID de empresario, usa `registrar_id_distribuidor`.")
+            + ("" if http_client else f"\n{text}"))
 
 
 async def _forward_quote_to_approver(http_client: httpx.AsyncClient, order: dict) -> None:
@@ -2183,7 +2266,13 @@ async def _handle_quote_location(
     updated_order = storage.get_order(order["id"])
     await _forward_quote_to_approver(http_client, updated_order)
 
-    reply = "¡Gracias! Ya tengo tu ubicación, dame un momento mientras calculo las opciones de envío."
+    turn = team_hours.turn_if_unavailable(sender_phone, "logistica", "cotizacion", order["id"])
+    if turn:
+        reply = (f"¡Gracias! Ya tengo tu ubicación 📍 Nuestro equipo de logística retoma "
+                 f"{team_hours.resume_text('logistica')} y en ese momento te paso tus opciones de envío. Tu número de "
+                 f"turno es el *#{turn}*.")
+    else:
+        reply = "¡Gracias! Ya tengo tu ubicación, dame un momento mientras calculo las opciones de envío."
     storage.log_message(sender_phone, "assistant", reply)
     await send_whatsapp_message(http_client, sender_phone, reply)
 
@@ -2213,6 +2302,7 @@ async def _approve_quote(
 
     if not order or order.get("status") != "cotizacion_pendiente_aprobacion":
         return f"No encontré una cotización pendiente de aprobación para el teléfono {telefono_cliente}."
+    team_hours.resolve(matched_phone, "logistica")
 
     if not aprobado:
         storage.reject_quote(matched_phone, motivo_rechazo)
@@ -2278,6 +2368,13 @@ async def _choose_shipping(sender_phone: str, opcion: str = None, _allow_repeat:
 
     product_amount = _parse_money(order.get("amount_expected"))
     shipping_amount = _parse_money(chosen["precio"])
+    if order.get("products_paid_at"):
+        return (
+            f"OK: envío '{chosen['nombre']}' elegido, entrega estimada {chosen['eta']}. Sus productos YA están pagados "
+            f"y confirmados; ahora el monto a pagar es SOLO el envío: ${shipping_amount:,.0f}. Copia este texto EXACTO "
+            f"con los datos bancarios, sin cambiar ni un dígito:\n\n{BANK_DETAILS_TEXT}\n\nDespués pídele la captura "
+            f"de su transferencia del envío."
+        )
     if product_amount is not None and shipping_amount is not None:
         total_text = f"${product_amount + shipping_amount:,.0f}"
     else:
@@ -2429,6 +2526,19 @@ async def _authorize_order(
         return f"No encontré un pedido en curso para el teléfono {telefono_cliente}. Verifica el número."
 
     is_enrollment = order.get("kind") == "inscripcion"
+    team_hours.resolve(matched_phone, "control")
+    if aprobado and order.get("prepaid") and not order.get("products_paid_at"):
+        storage.mark_products_paid(order["id"], aprobado_por)
+        logger.info("Pago de PRODUCTOS (compra fuera de horario) de %s confirmado por %s.", matched_phone, aprobado_por)
+        customer = storage.get_customer(matched_phone) or {}
+        saludo = f"{customer['name']}, " if customer.get("name") else ""
+        await _say_to_client(
+            http_client, matched_phone,
+            f"{saludo}¡tu pago de productos ya fue confirmado! 🎉 Ahora vamos con tu envío: compárteme la ubicación "
+            f"EXACTA de entrega con el clip 📎 → Ubicación y te cotizo las opciones.",
+        )
+        return (f"Pago de productos de {matched_phone} confirmado (compra fuera de horario). Ya le pedí su ubicación "
+                f"para cotizar el envío; todavía NO pasa a logística (falta el pago del envío).")
     if not aprobado:
         storage.reject_order(matched_phone, motivo_rechazo)
         logger.info("Pedido de %s RECHAZADO por control. Motivo: %s", matched_phone, motivo_rechazo or "-")
@@ -2757,6 +2867,29 @@ network_commissions.configure(
     control_phones=(ARA_PHONE_NUMBER,),
     sales_phone=SALES_PHONE_NUMBER,
     remember=_remember_for_client,
+)
+
+STAFF_NAMES = {
+    ARA_PHONE_NUMBER: "Ara", "525543020066": "Benjamín", LOGISTICS_PHONE_NUMBER: "Armando",
+    SALES_PHONE_NUMBER: "Belén", CEDIS_PHONE_NUMBER: "Yeni", CEO_PHONE_NUMBER: "Alma",
+    MARKETING_PHONE_NUMBER: "Jacob", TRAINING_PHONE_NUMBER: "Rubén",
+}
+team_hours.configure(
+    areas={
+        "control": tuple(sorted(CONTROL_PHONE_NUMBERS)),
+        "logistica": (LOGISTICS_PHONE_NUMBER,),
+        "ventas": (SALES_PHONE_NUMBER,),
+        "altas": (SALES_PHONE_NUMBER, CEDIS_PHONE_NUMBER),
+    },
+    names={_normalize_phone(k): v for k, v in STAFF_NAMES.items()},
+    staff={_normalize_phone(n): n for n in (
+        CEO_PHONE_NUMBER, LOGISTICS_PHONE_NUMBER, SALES_PHONE_NUMBER, CEDIS_PHONE_NUMBER,
+        TRAINING_PHONE_NUMBER, MARKETING_PHONE_NUMBER, *CONTROL_PHONE_NUMBERS)},
+    send_raw=lambda http, to, kind, payload: _send_raw(http, to, kind, payload),
+)
+distributor_validation.set_availability(
+    lambda phone, moment=None: team_hours.is_available(phone, moment),
+    lambda phone, text: team_hours.hold(phone, "text", {"text": text}),
 )
 
 STAFF_ALMA_PROMPT = """Eres un asistente interno (NO de cara a clientes) que ayuda a Alma Benítez, CEO de \
@@ -3174,10 +3307,18 @@ async def _handle_payment_proof(
     updated_order = storage.get_order(order["id"])
     await _forward_order_to_control(http_client, updated_order)
 
-    reply = (
-        "¡Gracias! Ya recibí tu comprobante 🙌 Dame un momento, por favor: lo estoy pasando a nuestro equipo para "
-        "que verifique tu depósito. En cuanto lo confirmen te aviso por aquí."
-    )
+    turn = team_hours.turn_if_unavailable(sender_phone, "control", "pago", order["id"])
+    if turn:
+        reply = (
+            f"¡Listo! Registré tu comprobante 🙌 Solo falta la confirmación de nuestro equipo, que retoma "
+            f"{team_hours.resume_text('control')}. Tu número de turno en la lista de espera es el *#{turn}*. En cuanto "
+            f"lo confirmen te aviso por aquí para continuar."
+        )
+    else:
+        reply = (
+            "¡Gracias! Ya recibí tu comprobante 🙌 Dame un momento, por favor: lo estoy pasando a nuestro equipo para "
+            "que verifique tu depósito. En cuanto lo confirmen te aviso por aquí."
+        )
     history = _get_history(sender_phone)
     history.append({"role": "user", "content": "[comprobante de pago]"})
     history.append({"role": "assistant", "content": reply})
@@ -3431,6 +3572,7 @@ async def lifespan(app: FastAPI):
     )
     app.state.discount_task = asyncio.create_task(distributor_validation.run_reminder_loop(app.state.http_client))
     app.state.commission_task = asyncio.create_task(network_commissions.run_commission_loop(app.state.http_client))
+    app.state.hours_task = asyncio.create_task(team_hours.run_hours_loop(app.state.http_client))
     app.state.coach_task = asyncio.create_task(
         sales_coach.run_coach_loop(
             app.state.http_client, WHATSAPP_API_URL, WHATSAPP_TOKEN, SALES_PHONE_NUMBER,
@@ -3446,6 +3588,7 @@ async def lifespan(app: FastAPI):
     app.state.coach_task.cancel()
     app.state.discount_task.cancel()
     app.state.commission_task.cancel()
+    app.state.hours_task.cancel()
     await app.state.http_client.aclose()
 
 
@@ -3491,6 +3634,15 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks):
 
 
 async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> None:
+    # La marca de "respuesta a staff" vive solo mientras se procesa este evento.
+    token = _REPLY_TO.set(None)
+    try:
+        await _process_webhook_event(body, http_client)
+    finally:
+        _REPLY_TO.reset(token)
+
+
+async def _process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> None:
     try:
         value = body["entry"][0]["changes"][0]["value"]
     except (KeyError, IndexError, TypeError):
@@ -3516,11 +3668,17 @@ async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> N
 
     sender_normalized = _normalize_phone(sender_phone)
     is_staff_number = sender_normalized in STAFF_PHONE_NUMBERS
+    _REPLY_TO.set(sender_phone if is_staff_number else None)
     try:
         # Registra la actividad (ventana de 24 h) y entrega reportes/comisiones que esperaban su respuesta.
         await network_commissions.on_inbound(http_client, sender_phone)
     except Exception:
         logger.exception("Error entregando pendientes a %s.", sender_phone)
+    if is_staff_number:
+        try:
+            await team_hours.on_staff_inbound(http_client, sender_phone)
+        except Exception:
+            logger.exception("Error entregando avisos retenidos a %s.", sender_phone)
 
     if is_staff_number and message.get("type") == "text":
         toggle_text = message.get("text", {}).get("body", "").strip().lower()
@@ -3537,6 +3695,11 @@ async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> N
         if toggle_text == "modo staff":
             storage.set_distributor_mode(sender_phone, False)
             await send_whatsapp_message(http_client, sender_phone, "Listo, volviste al modo de comandos internos.")
+            return
+        command_reply = await team_hours.handle_command(http_client, sender_phone, toggle_text)
+        if command_reply is not None:
+            if command_reply:
+                await send_whatsapp_message(http_client, sender_phone, command_reply)
             return
 
     staff_distributor_active = is_staff_number and storage.is_distributor_mode(sender_phone)
@@ -3915,7 +4078,27 @@ async def _run_tool_and_get_final_reply(
     return EMPTY_REPLY_FALLBACK
 
 
+# Mientras se procesa un mensaje que escribió alguien del staff, lo que se le conteste a esa persona
+# nunca se retiene (aunque sea de noche o esté en su comida): es una respuesta, no un aviso.
+_REPLY_TO = contextvars.ContextVar("teo_reply_to", default=None)
+
+
+def _hold_for_staff(to: str, kind: str, payload: dict) -> bool:
+    if team_hours.should_hold(to, reply_to=_REPLY_TO.get()):
+        team_hours.hold(to, kind, payload)
+        return True
+    return False
+
+
 async def send_whatsapp_message(http_client: httpx.AsyncClient, to: str, text: str) -> None:
+    if not to:
+        return
+    if _hold_for_staff(to, "text", {"text": text}):
+        return
+    await _raw_send_text(http_client, to, text)
+
+
+async def _raw_send_text(http_client: httpx.AsyncClient, to: str, text: str) -> None:
     if not to:
         return
 
@@ -4335,6 +4518,19 @@ def _customer_stage_note(sender_phone: str):
             "Está en la lista de interesados en el negocio: si dice que quiere empezar, usa "
             "`registrar_interes_negocio` con decision 'acepta' para iniciar su entrenamiento de líder."
         )
+    if order and order.get("prepaid") and not order.get("products_paid_at") and order.get("status") == "pendiente_pago":
+        notes.append(
+            f"Compra fuera de horario: ya tiene los datos para pagar SOLO sus productos ({order.get('products_amount')}). "
+            f"NO le pidas ubicación todavía: el envío se cotiza cuando el equipo confirme su pago."
+        )
+    elif order and order.get("products_paid_at") and order.get("status") == "cotizando":
+        notes.append("Su pago de productos YA fue confirmado: falta su ubicación (clip 📎 → Ubicación) para cotizar el "
+                     "envío, que se paga aparte por transferencia.")
+    ticket, position = team_hours.current_turn(sender_phone)
+    if ticket:
+        notes.append(f"Está en la lista de espera con el turno #{position} ({team_hours.KIND_LABELS.get(ticket['kind'])}). "
+                     f"Si pregunta, dile con calidez que el equipo lo atiende {team_hours.resume_text(ticket['area'])} "
+                     f"y que no necesita volver a mandar nada.")
     notes.extend(n for n in enrollment_flow.stage_notes(sender_phone) if n)
     if not notes:
         return None
@@ -4356,6 +4552,15 @@ async def _find_official_video(protocolo: str = None, productos: list = None, ma
 
 
 async def _upload_and_send_document(
+    http_client: httpx.AsyncClient, to: str, data: bytes, filename: str, caption: str = None,
+    mime_type: str = network_commissions.XLSX_MIME,
+) -> bool:
+    if _hold_for_staff(to, "document", {"data": data, "filename": filename, "caption": caption, "mime_type": mime_type}):
+        return True
+    return await _raw_send_document(http_client, to, data, filename, caption, mime_type)
+
+
+async def _raw_send_document(
     http_client: httpx.AsyncClient, to: str, data: bytes, filename: str, caption: str = None,
     mime_type: str = network_commissions.XLSX_MIME,
 ) -> bool:
@@ -4383,6 +4588,12 @@ async def _upload_and_send_document(
 
 
 async def _send_template(http_client: httpx.AsyncClient, to: str, template_name: str, params: list) -> bool:
+    if _hold_for_staff(to, "template", {"name": template_name, "params": list(params)}):
+        return True
+    return await _raw_send_template(http_client, to, template_name, params)
+
+
+async def _raw_send_template(http_client: httpx.AsyncClient, to: str, template_name: str, params: list) -> bool:
     payload = {
         "messaging_product": "whatsapp", "to": to, "type": "template",
         "template": {"name": template_name, "language": {"code": "es_MX"},
@@ -4398,6 +4609,22 @@ async def _send_template(http_client: httpx.AsyncClient, to: str, template_name:
         logger.error("Plantilla %s rechazada para %s (%s): %s", template_name, to, response.status_code, response.text)
         return False
     return True
+
+
+async def _send_raw(http_client, to: str, kind: str, payload: dict) -> bool:
+    """Envío sin retención (lo usa team_hours al entregar los avisos guardados)."""
+    if kind == "text":
+        await _raw_send_text(http_client, to, payload["text"])
+        return True
+    if kind == "image":
+        await _raw_send_image(http_client, to, payload["media_id"], payload.get("caption"))
+        return True
+    if kind == "document":
+        return await _raw_send_document(http_client, to, payload["data"], payload["filename"], payload.get("caption"),
+                                        payload.get("mime_type") or network_commissions.XLSX_MIME)
+    if kind == "template":
+        return await _raw_send_template(http_client, to, payload["name"], payload.get("params") or [])
+    raise ValueError(f"Tipo de aviso desconocido: {kind}")
 
 
 async def _download_whatsapp_media(http_client: httpx.AsyncClient, media_id: str):

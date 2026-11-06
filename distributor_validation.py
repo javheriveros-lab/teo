@@ -26,6 +26,19 @@ _api_url = None
 _token = None
 _sales_phone = None
 _history_key = None
+# Disponibilidad de Belén (horario laboral / Modo Comida), inyectada por main vía team_hours.
+_is_available = None
+_hold_text = None
+
+
+def set_availability(is_available, hold_text) -> None:
+    """`is_available(phone) -> bool`; `hold_text(phone, text)` guarda un aviso para cuando regrese."""
+    global _is_available, _hold_text
+    _is_available, _hold_text = is_available, hold_text
+
+
+def _sales_available(moment: datetime = None) -> bool:
+    return _is_available is None or _is_available(_sales_phone, moment)
 
 
 def configure(api_url: str, token: str, sales_phone: str, history_key=None) -> None:
@@ -104,6 +117,10 @@ def build_request_text(order: dict, customer: dict, reminder_number: int = 0) ->
 async def notify_sales(http_client, order: dict, reminder_number: int = 0) -> bool:
     """Manda la consulta a Belén con la plantilla (para llegar fuera de la ventana de 24 h) y, si
     falla, como texto libre. La deja en el historial de Belén."""
+    if not _sales_available():
+        # Belén descansa o está comiendo: la consulta queda pendiente y el loop se la manda al volver.
+        logger.info("Validación de la orden %s en espera: Ventas no está disponible.", order["id"])
+        return False
     customer = storage.get_customer(order["phone"])
     s = request_summary(order, customer)
     params = [_one_line(s["cliente"], 120), _one_line(s["id"], 60), _one_line(s["pedido"], 300),
@@ -120,6 +137,9 @@ async def notify_sales(http_client, order: dict, reminder_number: int = 0) -> bo
 
 
 async def notify_sales_text(http_client, text: str) -> None:
+    if not _sales_available() and _hold_text:
+        _hold_text(_sales_phone, text)
+        return
     payload = {"messaging_product": "whatsapp", "to": _sales_phone, "type": "text", "text": {"body": text}}
     await _send(http_client, _api_url, _token, payload, _sales_phone, "aviso_descuento")
     if _history_key:
@@ -181,8 +201,11 @@ async def run_reminder_loop(http_client) -> None:
 
 
 async def send_due_reminders(http_client, now: datetime = None) -> int:
-    now = now or datetime.now(TIMEZONE)
-    if not ACTIVE_HOURS[0] <= now.hour < ACTIVE_HOURS[1]:
+    if _is_available is not None:
+        # Sin hora explícita, la disponibilidad usa el reloj de team_hours (horario + Modo Comida).
+        if not _sales_available(now):
+            return 0
+    elif not ACTIVE_HOURS[0] <= (now or datetime.now(TIMEZONE)).hour < ACTIVE_HOURS[1]:
         return 0
     sent = 0
     for order in storage.get_due_discount_reminders(REMINDER_MINUTES):

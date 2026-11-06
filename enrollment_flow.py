@@ -20,6 +20,7 @@ import httpx
 
 import pricing
 import storage
+import team_hours
 
 logger = logging.getLogger("teo.altas")
 
@@ -514,8 +515,14 @@ async def _submit_for_review(http, enrollment: dict) -> None:
     if _cfg["log_review"]:
         _cfg["log_review"](package)
     logger.info("Alta %s enviada a revisión de identidad.", enrollment["id"])
-    await _say(http, sender_phone, "¡Listo, ya tengo tus fotos! 🙌 Nuestro equipo está revisando tu identidad para "
-                                   "activar tu cuenta. En cuanto termine te aviso por aquí.")
+    turn = team_hours.turn_if_unavailable(sender_phone, "altas", "alta", enrollment["id"])
+    if turn:
+        await _say(http, sender_phone, f"¡Listo, ya tengo tus datos y tus fotos! 🙌 Nuestro equipo revisa tu identidad "
+                                       f"{team_hours.resume_text('altas')} para activar tu cuenta. Tu número de turno es "
+                                       f"el *#{turn}*; en cuanto terminen te aviso por aquí.")
+    else:
+        await _say(http, sender_phone, "¡Listo, ya tengo tus fotos! 🙌 Nuestro equipo está revisando tu identidad para "
+                                       "activar tu cuenta. En cuanto termine te aviso por aquí.")
 
 
 # ---------------------------------------------------------------------------
@@ -531,6 +538,8 @@ async def review(http, telefono_aspirante: str = None, accion: str = None, motiv
     if not enrollment:
         return f"ERROR: no hay un alta en revisión de identidad para el teléfono {telefono_aspirante}."
     phone, name = enrollment["phone"], enrollment.get("full_name") or "el aspirante"
+    if accion in ("rechazar", "pedir_fotos") or (id_empresario and descuento_pct is not None):
+        team_hours.resolve(phone, "altas")
     first = (enrollment.get("full_name") or "").split(" ")[0] or None
 
     if accion == "pedir_fotos":

@@ -337,6 +337,7 @@ def init_db() -> None:
             )
             """
         )
+        _init_hours_tables(conn)
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS campaign_content (
@@ -2255,3 +2256,196 @@ def take_pending_deliveries(phone: str) -> list:
             conn.execute(f"UPDATE pending_deliveries SET delivered_at = CURRENT_TIMESTAMP WHERE id IN ({marks})",
                          [r["id"] for r in rows])
         return rows
+
+
+# ---------------------------------------------------------------------------
+# Horario laboral: Modo Comida, avisos retenidos y lista de espera (turnos)
+# ---------------------------------------------------------------------------
+
+def _init_hours_tables(conn) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS staff_breaks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            phone_last10 TEXT NOT NULL,
+            started_at TEXT NOT NULL,
+            ends_at TEXT NOT NULL,
+            ended_at TEXT
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS held_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            to_phone TEXT NOT NULL,
+            phone_last10 TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'retenido',
+            created_at TEXT NOT NULL,
+            delivered_at TEXT
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS wait_tickets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_phone TEXT NOT NULL,
+            client_last10 TEXT NOT NULL,
+            area TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            ref_id INTEGER,
+            created_at TEXT NOT NULL,
+            resolved_at TEXT
+        )
+        """
+    )
+    for column, ddl in (
+        ("prepaid", "prepaid INTEGER NOT NULL DEFAULT 0"),
+        ("products_amount", "products_amount TEXT"),
+        ("products_paid_at", "products_paid_at TEXT"),
+        ("products_paid_by", "products_paid_by TEXT"),
+    ):
+        _ensure_column(conn, "orders", column, ddl)
+
+
+def start_break(phone: str, started_at: str, ends_at: str) -> None:
+    last10 = _digits10(phone)
+    with _connection() as conn:
+        conn.execute("UPDATE staff_breaks SET ended_at = ? WHERE phone_last10 = ? AND ended_at IS NULL",
+                     (started_at, last10))
+        conn.execute("INSERT INTO staff_breaks (phone_last10, started_at, ends_at) VALUES (?, ?, ?)",
+                     (last10, started_at, ends_at))
+
+
+def get_active_break(phone: str):
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM staff_breaks WHERE phone_last10 = ? AND ended_at IS NULL ORDER BY id DESC LIMIT 1",
+            (_digits10(phone),),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def list_open_breaks() -> list:
+    with _connection() as conn:
+        return [dict(r) for r in conn.execute("SELECT * FROM staff_breaks WHERE ended_at IS NULL ORDER BY id")]
+
+
+def end_break(break_id: int, ended_at: str) -> None:
+    with _connection() as conn:
+        conn.execute("UPDATE staff_breaks SET ended_at = ? WHERE id = ? AND ended_at IS NULL", (ended_at, break_id))
+
+
+def hold_message(to_phone: str, kind: str, payload: str, created_at: str) -> int:
+    with _connection() as conn:
+        return conn.execute(
+            "INSERT INTO held_messages (to_phone, phone_last10, kind, payload, created_at) VALUES (?, ?, ?, ?, ?)",
+            (to_phone, _digits10(to_phone), kind, payload, created_at),
+        ).lastrowid
+
+
+def list_held_messages(phone: str, statuses=("retenido", "esperando_respuesta")) -> list:
+    marks = ",".join("?" for _ in statuses)
+    with _connection() as conn:
+        return [dict(r) for r in conn.execute(
+            f"SELECT * FROM held_messages WHERE phone_last10 = ? AND status IN ({marks}) ORDER BY id",
+            (_digits10(phone), *statuses),
+        )]
+
+
+def held_recipients(status: str = "retenido") -> list:
+    with _connection() as conn:
+        return [r["to_phone"] for r in conn.execute(
+            "SELECT to_phone, MIN(id) AS first FROM held_messages WHERE status = ? GROUP BY phone_last10 ORDER BY first",
+            (status,),
+        )]
+
+
+def set_held_status(ids: list, status: str, delivered_at: str = None) -> None:
+    if not ids:
+        return
+    marks = ",".join("?" for _ in ids)
+    with _connection() as conn:
+        conn.execute(f"UPDATE held_messages SET status = ?, delivered_at = COALESCE(?, delivered_at) WHERE id IN ({marks})",
+                     (status, delivered_at, *ids))
+
+
+def open_wait_ticket(client_phone: str, area: str, kind: str, ref_id: int, created_at: str) -> int:
+    """Turno en la lista de espera; si el cliente ya tiene uno abierto en esa área, se reutiliza."""
+    last10 = _digits10(client_phone)
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT id FROM wait_tickets WHERE client_last10 = ? AND area = ? AND resolved_at IS NULL",
+            (last10, area),
+        ).fetchone()
+        if row:
+            return row["id"]
+        return conn.execute(
+            "INSERT INTO wait_tickets (client_phone, client_last10, area, kind, ref_id, created_at) VALUES (?,?,?,?,?,?)",
+            (client_phone, last10, area, kind, ref_id, created_at),
+        ).lastrowid
+
+
+def wait_position(ticket_id: int) -> int:
+    with _connection() as conn:
+        ticket = conn.execute("SELECT * FROM wait_tickets WHERE id = ?", (ticket_id,)).fetchone()
+        if not ticket:
+            return 0
+        return conn.execute(
+            "SELECT COUNT(*) AS n FROM wait_tickets WHERE area = ? AND resolved_at IS NULL AND id <= ?",
+            (ticket["area"], ticket_id),
+        ).fetchone()["n"]
+
+
+def get_open_wait_ticket(client_phone: str, area: str = None):
+    sql = "SELECT * FROM wait_tickets WHERE client_last10 = ? AND resolved_at IS NULL"
+    params = [_digits10(client_phone)]
+    if area:
+        sql += " AND area = ?"
+        params.append(area)
+    with _connection() as conn:
+        row = conn.execute(sql + " ORDER BY id LIMIT 1", params).fetchone()
+        return dict(row) if row else None
+
+
+def list_open_wait_tickets(areas) -> list:
+    areas = list(areas)
+    if not areas:
+        return []
+    marks = ",".join("?" for _ in areas)
+    with _connection() as conn:
+        return [dict(r) for r in conn.execute(
+            f"SELECT * FROM wait_tickets WHERE resolved_at IS NULL AND area IN ({marks}) ORDER BY id", areas,
+        )]
+
+
+def resolve_wait_tickets(client_phone: str, area: str, resolved_at: str) -> None:
+    with _connection() as conn:
+        conn.execute(
+            "UPDATE wait_tickets SET resolved_at = ? WHERE client_last10 = ? AND area = ? AND resolved_at IS NULL",
+            (resolved_at, _digits10(client_phone), area),
+        )
+
+
+def mark_order_prepaid(order_id: int, products_amount: str) -> None:
+    """Compra fuera de horario: el cliente paga primero los productos (el envío se cotiza después)."""
+    with _connection() as conn:
+        conn.execute(
+            "UPDATE orders SET prepaid = 1, products_amount = ?, status = 'pendiente_pago', "
+            "updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (products_amount, order_id),
+        )
+
+
+def mark_products_paid(order_id: int, approved_by: str = None) -> dict:
+    """Ara confirmó el pago de productos: la orden vuelve a 'cotizando' para pedir la ubicación del envío."""
+    with _connection() as conn:
+        conn.execute(
+            "UPDATE orders SET products_paid_at = CURRENT_TIMESTAMP, products_paid_by = ?, status = 'cotizando', "
+            "proof_media_id = NULL, vision_summary = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (approved_by, order_id),
+        )
+        return dict(conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone())

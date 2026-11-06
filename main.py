@@ -81,6 +81,8 @@ CONTROL_PHONE_NUMBERS = {                # Araceli Benítez y Benjamín — Cont
     "525576649653",
     "525543020066",
 }
+# Ara es la única que recibe y valida los reportes de comisiones y manda los comprobantes de pago a líderes.
+ARA_PHONE_NUMBER = "525576649653"        # Araceli Benítez — Control; comisiones de red
 SALES_PHONE_NUMBER = "525535867303"      # Belén Figueroa — Ventas e inscripciones
 CEDIS_PHONE_NUMBER = "525545862291"      # Yeni — CEDIS Chimalhuacán, inscripciones
 TRAINING_PHONE_NUMBER = "525616025073"   # Rubén — Capacitación (Fase 2 — sin uso activo aún)
@@ -2752,7 +2754,7 @@ network_commissions.configure(
     send_image=lambda http, to, media_id, caption: _send_whatsapp_image_by_id(http, to, media_id, caption),
     send_template=lambda http, to, name, params: _send_template(http, to, name, params),
     download=lambda http, media_id: _download_whatsapp_media(http, media_id),
-    control_phones=tuple(sorted(CONTROL_PHONE_NUMBERS)),
+    control_phones=(ARA_PHONE_NUMBER,),
     sales_phone=SALES_PHONE_NUMBER,
     remember=_remember_for_client,
 )
@@ -3574,16 +3576,22 @@ async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> N
             return await _register_campaign_content(http_client, created_by=staff_phone, **kw)
         return _handler
 
+    is_ara = sender_normalized == _normalize_phone(ARA_PHONE_NUMBER)
+    staff_control_prompt = STAFF_CONTROL_PROMPT if is_ara else STAFF_CONTROL_PROMPT.split("\nTambién revisas")[0]
+
     staff_routes = [
         (
             {_normalize_phone(n) for n in CONTROL_PHONE_NUMBERS},
-            STAFF_CONTROL_PROMPT,
-            [AUTHORIZE_ORDER_TOOL, VALIDATE_COMMISSIONS_TOOL, COMMISSION_ERROR_TOOL, VIEW_COMMISSIONS_TOOL],
+            staff_control_prompt,
+            [AUTHORIZE_ORDER_TOOL] + ([VALIDATE_COMMISSIONS_TOOL, COMMISSION_ERROR_TOOL, VIEW_COMMISSIONS_TOOL]
+                                      if is_ara else []),
             {
                 "autorizar_pedido": _authorize_handler_for(sender_phone),
-                "validar_reporte_comisiones": _commission_handler_for(network_commissions.validate_report, sender_phone),
-                "reportar_error_comisiones": _commission_handler_for(network_commissions.report_error, sender_phone),
-                "ver_reporte_comisiones": network_commissions.view_report,
+                **({
+                    "validar_reporte_comisiones": _commission_handler_for(network_commissions.validate_report, sender_phone),
+                    "reportar_error_comisiones": _commission_handler_for(network_commissions.report_error, sender_phone),
+                    "ver_reporte_comisiones": network_commissions.view_report,
+                } if is_ara else {}),
             },
         ),
         (
@@ -3634,8 +3642,8 @@ async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> N
                 await _handle_belen_message(http_client, sender_phone, coach_text)
         return
 
-    if not staff_distributor_active and sender_normalized in {_normalize_phone(n) for n in CONTROL_PHONE_NUMBERS}:
-        # Control (Ara/Benjamín): Excel corregido del reporte de comisiones y comprobantes de pago a líderes.
+    if not staff_distributor_active and is_ara:
+        # Solo Ara: Excel corregido del reporte de comisiones y comprobantes de pago a líderes.
         if message.get("type") == "document":
             if not await network_commissions.on_control_document(http_client, sender_phone, message.get("document", {})):
                 await send_whatsapp_message(http_client, sender_phone,

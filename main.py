@@ -17,6 +17,7 @@ from openai import AsyncOpenAI, BadRequestError, RateLimitError
 import distributor_validation
 import enrollment_flow
 import network_commissions
+import package_training
 import plans
 import pricing
 import sales_coach
@@ -1149,6 +1150,39 @@ VALIDATE_DISCOUNT_TOOL = {
     },
 }
 
+PACKAGE_DATA_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "registrar_datos_paquete",
+        "description": "Guarda las medidas, el peso y el costo real de envío de un paquete empacado por Armando.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "telefono_cliente": {"type": "string", "description": "Teléfono del cliente del pedido, si lo menciona."},
+                "producto": {"type": "string", "description": "Combo o protocolo, si lo menciona."},
+                "largo": {"type": "number", "description": "Largo de la caja en cm."},
+                "ancho": {"type": "number", "description": "Ancho de la caja en cm."},
+                "alto": {"type": "number", "description": "Alto de la caja en cm."},
+                "peso_kg": {"type": "number", "description": "Peso del paquete en kg."},
+                "costo_envio": {"type": "number", "description": "Costo aproximado del envío en MXN."},
+                "paqueteria": {"type": "string", "description": "Paquetería, si la menciona."},
+                "notas": {"type": "string", "description": "Observaciones de empaque, si las da."},
+            },
+            "required": ["largo", "ancho", "alto", "peso_kg", "costo_envio"],
+        },
+    },
+}
+
+PACKAGE_REFERENCES_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "ver_referencias_paquetes",
+        "description": "Muestra el promedio de medidas, peso y costo de envío aprendido por combo.",
+        "parameters": {"type": "object", "properties": {
+            "producto": {"type": "string", "description": "Combo o protocolo (opcional; si no, todos)."}}},
+    },
+}
+
 SET_COMMISSION_TOOL = {
     "type": "function",
     "function": {
@@ -2170,6 +2204,11 @@ async def _start_prepaid_purchase(http_client, sender_phone: str, order_id: int,
             + ("" if http_client else f"\n{text}"))
 
 
+def _package_reference_block(order: dict) -> str:
+    line = package_training.reference_line(order.get("product"))
+    return f"{line}\n\n" if line else ""
+
+
 async def _forward_quote_to_approver(http_client: httpx.AsyncClient, order: dict) -> None:
     customer = storage.get_customer(order["phone"])
     name = customer.get("name") if customer else None
@@ -2201,6 +2240,7 @@ async def _forward_quote_to_approver(http_client: httpx.AsyncClient, order: dict
         f"Distancia calculada: {round(order.get('distance_km') or 0, 1)} km\n"
         f"Ubicación de destino: {maps_link}\n\n"
         f"{metro_line}"
+        f"{_package_reference_block(order)}"
         f"Opciones calculadas:\n{options_text}\n\n"
         f"Para aprobar, responde con el teléfono del cliente (ej. \"aprobado {order['phone']}\"). Si "
         f"quieres ajustar el precio final, inclúyelo (ej. \"aprobado {order['phone']}, precio final $350\")."
@@ -2573,6 +2613,12 @@ async def _authorize_order(
         network_commissions.record_purchase(updated_order)
     except Exception:
         logger.exception("No se pudo registrar la compra de red de la orden %s.", updated_order.get("id"))
+    try:
+        # Entrenamiento de paquetes: pide a logística medidas, peso y costo real (no toca al cliente).
+        if package_training.should_ask(updated_order):
+            await package_training.ask_armando(http_client, updated_order)
+    except Exception:
+        logger.exception("No se pudo pedir los datos de paquete de la orden %s.", updated_order.get("id"))
 
     customer = storage.get_customer(matched_phone)
     name = customer.get("name") if customer else None
@@ -2858,6 +2904,11 @@ enrollment_flow.configure(
     log_review=lambda text: storage.log_message(sales_coach.history_key(SALES_PHONE_NUMBER), "assistant", text),
 )
 
+package_training.configure(
+    send_text=lambda http, to, text: send_whatsapp_message(http, to, text),
+    logistics_phone=LOGISTICS_PHONE_NUMBER,
+)
+
 network_commissions.configure(
     send_text=lambda http, to, text: send_whatsapp_message(http, to, text),
     send_document=lambda http, to, data, filename, caption: _upload_and_send_document(http, to, data, filename, caption),
@@ -2913,9 +2964,13 @@ o discrepancia, usa `reportar_error_comisiones` con lo que dijo; si pregunta có
 comisión y el Excel corregido se procesan solos al recibirlos."""
 
 STAFF_ARMANDO_PROMPT = """Eres un asistente interno (NO de cara a clientes) que ayuda a Armando (Logística, \
-cotizaciones y puntos de entrega) de I'AM. Puedes hacer 2 cosas: (1) aprobar o rechazar una cotización de \
-envío con `aprobar_cotizacion` (teléfono del cliente, aprobado/rechazado, precio final si lo ajusta), o (2) \
-actualizar el inventario de un producto con `actualizar_inventario` (producto, cantidad en existencia). \
+cotizaciones y puntos de entrega) de I'AM. Puedes hacer estas cosas: (1) aprobar o rechazar una cotización de \
+envío con `aprobar_cotizacion` (teléfono del cliente, aprobado/rechazado, precio final si lo ajusta), (2) \
+actualizar el inventario de un producto con `actualizar_inventario` (producto, cantidad en existencia), o (3) \
+registrar los datos reales de un paquete empacado con `registrar_datos_paquete` cuando mande medidas, peso y costo \
+del envío (si escribe las medidas como "30x20x15", sepáralas en largo, ancho y alto; si menciona al cliente o el \
+combo, inclúyelos; si falta algún dato, NO lo inventes: pídeselo). Para consultar lo aprendido usa \
+`ver_referencias_paquetes`. \
 Interpreta el mensaje del humano y llama a la función que corresponda. Si es sobre una cotización y no \
 puedes identificar el teléfono del cliente, NO llames a la función: responde en texto pidiendo que lo incluya."""
 
@@ -3714,6 +3769,11 @@ async def _process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> 
             return await func(http_client, staff_phone=staff_phone, **kw)
         return _handler
 
+    def _package_handler_for(staff_phone: str):
+        async def _handler(http_client, **kw):
+            return await package_training.register(http_client, recorded_by=staff_phone, **kw)
+        return _handler
+
     def _review_handler_for(staff_phone: str):
         async def _handler(http_client, **kw):
             return await enrollment_flow.review(http_client, reviewer_phone=staff_phone, **kw)
@@ -3760,8 +3820,13 @@ async def _process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> 
         (
             {_normalize_phone(LOGISTICS_PHONE_NUMBER)},
             STAFF_ARMANDO_PROMPT,
-            [APPROVE_QUOTE_TOOL, INVENTORY_TOOL],
-            {"aprobar_cotizacion": _approve_quote, "actualizar_inventario": _inventory_handler_for(sender_phone)},
+            [APPROVE_QUOTE_TOOL, INVENTORY_TOOL, PACKAGE_DATA_TOOL, PACKAGE_REFERENCES_TOOL],
+            {
+                "aprobar_cotizacion": _approve_quote,
+                "actualizar_inventario": _inventory_handler_for(sender_phone),
+                "registrar_datos_paquete": _package_handler_for(sender_phone),
+                "ver_referencias_paquetes": package_training.view_references,
+            },
         ),
         (
             {_normalize_phone(CEDIS_PHONE_NUMBER)},

@@ -338,6 +338,7 @@ def init_db() -> None:
             """
         )
         _init_hours_tables(conn)
+        _init_package_tables(conn)
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS campaign_content (
@@ -2449,3 +2450,96 @@ def mark_products_paid(order_id: int, approved_by: str = None) -> dict:
             (approved_by, order_id),
         )
         return dict(conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone())
+
+
+# ---------------------------------------------------------------------------
+# Entrenamiento de paquetes (datos reales de empaque que reporta Armando)
+# ---------------------------------------------------------------------------
+
+def _init_package_tables(conn) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS package_profiles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER UNIQUE,
+            product TEXT,
+            combo_key TEXT NOT NULL,
+            length_cm REAL NOT NULL,
+            width_cm REAL NOT NULL,
+            height_cm REAL NOT NULL,
+            weight_kg REAL NOT NULL,
+            shipping_cost REAL NOT NULL,
+            carrier TEXT,
+            notes TEXT,
+            recorded_by TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    _ensure_column(conn, "orders", "package_requested_at", "package_requested_at TEXT")
+
+
+def save_package_profile(order_id, product: str, combo_key: str, length_cm: float, width_cm: float,
+                         height_cm: float, weight_kg: float, shipping_cost: float, carrier: str = None,
+                         notes: str = None, recorded_by: str = None) -> int:
+    with _connection() as conn:
+        if order_id is not None:
+            conn.execute("DELETE FROM package_profiles WHERE order_id = ?", (order_id,))
+        return conn.execute(
+            "INSERT INTO package_profiles (order_id, product, combo_key, length_cm, width_cm, height_cm, weight_kg, "
+            "shipping_cost, carrier, notes, recorded_by) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (order_id, product, combo_key, length_cm, width_cm, height_cm, weight_kg, shipping_cost, carrier, notes,
+             recorded_by),
+        ).lastrowid
+
+
+def count_package_profiles(combo_key: str) -> int:
+    with _connection() as conn:
+        return conn.execute("SELECT COUNT(*) AS n FROM package_profiles WHERE combo_key = ?",
+                            (combo_key,)).fetchone()["n"]
+
+
+def package_reference(combo_key: str):
+    """Promedios y rangos de los paquetes reales de un combo, o None si no hay registros."""
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) AS n, AVG(length_cm) AS l, AVG(width_cm) AS w, AVG(height_cm) AS h, "
+            "AVG(weight_kg) AS kg, MIN(weight_kg) AS kg_min, MAX(weight_kg) AS kg_max, AVG(shipping_cost) AS cost, "
+            "MIN(shipping_cost) AS cost_min, MAX(shipping_cost) AS cost_max FROM package_profiles WHERE combo_key = ?",
+            (combo_key,),
+        ).fetchone()
+        return dict(row) if row and row["n"] else None
+
+
+def list_package_profiles(combo_key: str = None, limit: int = 10) -> list:
+    sql, params = "SELECT * FROM package_profiles", []
+    if combo_key:
+        sql += " WHERE combo_key = ?"
+        params.append(combo_key)
+    with _connection() as conn:
+        return [dict(r) for r in conn.execute(sql + " ORDER BY id DESC LIMIT ?", (*params, limit))]
+
+
+def mark_package_requested(order_id: int) -> None:
+    with _connection() as conn:
+        conn.execute("UPDATE orders SET package_requested_at = CURRENT_TIMESTAMP WHERE id = ?", (order_id,))
+
+
+def get_package_pending_order(phone: str = None):
+    """Pedido al que se le pidieron datos de paquete y aún no tiene registro (por teléfono o el más reciente)."""
+    sql = ("SELECT o.* FROM orders o LEFT JOIN package_profiles p ON p.order_id = o.id "
+           "WHERE o.package_requested_at IS NOT NULL AND p.id IS NULL")
+    params = []
+    if phone:
+        sql += " AND substr(o.phone, -10) = ?"
+        params.append(_digits10(phone))
+    with _connection() as conn:
+        row = conn.execute(sql + " ORDER BY o.package_requested_at DESC, o.id DESC LIMIT 1", params).fetchone()
+        return dict(row) if row else None
+
+
+def get_latest_order_for_phone(phone: str):
+    with _connection() as conn:
+        row = conn.execute("SELECT * FROM orders WHERE substr(phone, -10) = ? ORDER BY id DESC LIMIT 1",
+                           (_digits10(phone),)).fetchone()
+        return dict(row) if row else None

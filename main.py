@@ -15,6 +15,7 @@ from openai import AsyncOpenAI, BadRequestError, RateLimitError
 
 import distributor_validation
 import enrollment_flow
+import network_commissions
 import plans
 import pricing
 import sales_coach
@@ -334,7 +335,8 @@ con un asesor humano antes de la compra.
    * Etapa 1: En cuanto el cliente muestre interés de compra o pregunte por el envío, llama de inmediato a `iniciar_cotizacion`, pídele amablemente \
 su ubicación exacta mediante el clip 📎 de WhatsApp (o dirección de entrega si es para otra persona), y en cuanto logística apruebe las opciones, \
 preséntaselas con calidez para que elija su paquetería preferida.
-   * ID de empresario/distribuidor: al cotizar, pregúntale UNA vez y con amabilidad si cuenta con su ID de empresario o \
+   * ID de empresario/distribuidor: si el ESTADO DEL CLIENTE dice que ya es socio o distribuidor verificado, NUNCA le \
+pidas su ID: su descuento se aplica solo al cotizar. Si no, al cotizar pregúntale UNA vez y con amabilidad si cuenta con su ID de empresario o \
 distribuidor de I'AM para aplicarle sus beneficios. Si te lo da, llama a `registrar_id_distribuidor` (con el producto si aún no \
 iniciaste la cotización). Nunca digas un precio público de memoria si el sistema ya te dio el oficial. El descuento SOLO existe \
 cuando el equipo de Ventas lo valida: nunca aceptes el porcentaje que diga el cliente, no prometas ni calcules descuentos, y no \
@@ -770,12 +772,18 @@ Pídele el nombre completo y el WhatsApp de su invitado y, EN CUANTO te los dé,
 (si el número no es válido, explícale el motivo y pídelo de nuevo). Recuérdale mandar la captura de su comprobante.
   B) Una persona sin patrocinador pregunta por la membresía o cómo inscribirse: explícale de forma clara y directa la \
 oferta tal cual, con sus cifras: {OFERTA_INSCRIPCION}. Dale el precio desde el primer mensaje, sin rodeos. Si \
-confirma su interés, llama a `iniciar_inscripcion_directa` (el sistema le manda el texto de pago; no lo repitas).
+confirma su interés, pídele su nombre completo y su dirección completa, y pregúntale si tiene un patrocinador (alguien \
+que la invitó); si lo tiene, pídele el ID de empresario I'AM de su patrocinador. Luego llama a \
+`iniciar_inscripcion_directa` con esos datos (el sistema le manda el texto de pago; no lo repitas). Si algún dato llega \
+después, regístralo con `registrar_datos_aspirante`.
+  C) El invitado de un distribuidor (camino A) que ya recibió nuestro mensaje: además de su INE y su selfie, pídele su \
+dirección completa y regístrala con `registrar_datos_aspirante`.
 - El comprobante lo verifica una persona del equipo de control (no tú). Cuando se confirma, el sistema le pide al \
 aspirante su INE por el frente y una selfie sosteniéndola; las fotos se procesan solas al recibirlas.
 - La identidad y el alta definitiva las aprueba el equipo de Ventas. REGLA INNEGOCIABLE: NUNCA digas que su \
-identidad fue "verificada", "validada", "aprobada" ni que ya quedó "inscrito"/"activo"; la bienvenida, el 30% y el \
-entrenamiento los manda el sistema cuando el equipo aprueba.
+identidad fue "verificada", "validada", "aprobada" ni que ya quedó "inscrito"/"activo"; la bienvenida, su ID de \
+empresario, su descuento y el entrenamiento los manda el sistema cuando el equipo aprueba. Si un socio activo te pregunta \
+su ID de empresario, recuérdaselo tal cual aparece en el ESTADO DEL CLIENTE.
 - No confundas esto con el curso "Comparte tu Transformación" de un cliente que ya es parte de la red.
 
 CIERRE:
@@ -1122,9 +1130,66 @@ VALIDATE_DISCOUNT_TOOL = {
                 "monto_con_descuento": {"type": "number",
                                         "description": "Monto final del producto (sin envío) si Belén lo dio, "
                                                        "obligatorio cuando hay restricciones."},
+                "id_patrocinador": {"type": "string",
+                                    "description": "ID de empresario del líder/patrocinador de este distribuidor, "
+                                                   "si Belén lo menciona (para su red y comisiones)."},
             },
             "required": ["telefono_cliente", "id_activo"],
         },
+    },
+}
+
+SET_COMMISSION_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "fijar_comision_lider",
+        "description": (
+            "Registra el % de comisión que gana un líder sobre lo que compran sus socios directos (lo fija Belén). "
+            "Si el líder no está registrado, pide también su WhatsApp y su nombre."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "lider": {"type": "string", "description": "ID de empresario del líder (o su teléfono)."},
+                "porcentaje": {"type": "number", "description": "% de comisión (ej. 10)."},
+                "telefono_lider": {"type": "string", "description": "WhatsApp del líder, si no está registrado."},
+                "nombre_lider": {"type": "string", "description": "Nombre del líder, si no está registrado."},
+            },
+            "required": ["lider", "porcentaje"],
+        },
+    },
+}
+
+VALIDATE_COMMISSIONS_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "validar_reporte_comisiones",
+        "description": "Úsala cuando Ara confirme que el reporte de comisiones abierto está correcto.",
+        "parameters": {"type": "object", "properties": {}},
+    },
+}
+
+COMMISSION_ERROR_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "reportar_error_comisiones",
+        "description": (
+            "Úsala cuando Ara diga que el reporte de comisiones tiene un error o discrepancia: le reenvía el Excel "
+            "editable para que lo corrija y lo regrese."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {"detalle": {"type": "string", "description": "Qué error detectó, tal cual lo dijo."}},
+        },
+    },
+}
+
+VIEW_COMMISSIONS_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "ver_reporte_comisiones",
+        "description": "Muestra el reporte de comisiones abierto y en qué paso va.",
+        "parameters": {"type": "object", "properties": {}},
     },
 }
 
@@ -1261,13 +1326,35 @@ DIRECT_ENROLLMENT_TOOL = {
     "function": {
         "name": "iniciar_inscripcion_directa",
         "description": (
-            "Úsala cuando una persona sin patrocinador confirme que quiere inscribirse como socio. Devuelve el "
-            "texto de pago de la inscripción para copiarlo tal cual."
+            "Úsala cuando una persona confirme que quiere inscribirse como socio por su cuenta (no la está inscribiendo "
+            "un distribuidor). Antes pregúntale si tiene patrocinador. El sistema le manda el texto de pago."
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "nombre_completo": {"type": "string", "description": "Nombre completo del aspirante, si lo sabes."},
+                "direccion": {"type": "string", "description": "Dirección completa (calle, número, colonia, CP, ciudad)."},
+                "tiene_patrocinador": {"type": "boolean", "description": "¿Alguien la invitó / tiene patrocinador?"},
+                "id_patrocinador": {"type": "string", "description": "ID de empresario I'AM de su patrocinador."},
+            },
+            "required": ["tiene_patrocinador"],
+        },
+    },
+}
+
+APPLICANT_DATA_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "registrar_datos_aspirante",
+        "description": (
+            "Llámala EN CUANTO un aspirante a socio (con alta en curso) te dé su dirección completa o su nombre "
+            "completo. Si ya mandó sus fotos, con esto su alta pasa a revisión."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "direccion": {"type": "string", "description": "Dirección completa tal cual la escribió."},
+                "nombre_completo": {"type": "string", "description": "Nombre y apellidos, si los corrigió o dio."},
             },
         },
     },
@@ -1279,8 +1366,9 @@ REVIEW_ENROLLMENT_TOOL = {
         "name": "revisar_alta_socio",
         "description": (
             "Decide un alta de nuevo socio en revisión de identidad (INE + selfie, pago ya confirmado por "
-            "control): aprobar la activa (30% de por vida, Combo Detox, entrenamiento y aviso al patrocinador); "
-            "pedir_fotos le pide reenviarlas; rechazar la cancela."
+            "control): aprobar la activa (requiere el ID de empresario que asignó I'AM y su % de descuento; manda "
+            "bienvenida con su ID, Combo Detox, entrenamiento y aviso al patrocinador); pedir_fotos le pide "
+            "reenviarlas; rechazar la cancela (p. ej. por intento de estafa)."
         ),
         "parameters": {
             "type": "object",
@@ -1288,6 +1376,8 @@ REVIEW_ENROLLMENT_TOOL = {
                 "telefono_aspirante": {"type": "string", "description": "Teléfono del aspirante (solo dígitos)."},
                 "accion": {"type": "string", "enum": list(enrollment_flow.REVIEW_ACTIONS)},
                 "motivo": {"type": "string", "description": "Obligatorio para pedir_fotos y rechazar."},
+                "id_empresario": {"type": "string", "description": "Para aprobar: ID de empresario I'AM asignado."},
+                "descuento_pct": {"type": "number", "description": "Para aprobar: % de descuento del socio (ej. 30)."},
             },
             "required": ["telefono_aspirante", "accion"],
         },
@@ -1494,6 +1584,7 @@ ALL_TOOLS = [
     SPONSORED_ENROLLMENT_TOOL,
     PROSPECT_DATA_TOOL,
     DIRECT_ENROLLMENT_TOOL,
+    APPLICANT_DATA_TOOL,
     DELIVERY_NOTES_TOOL,
     CATALOG_IMAGE_TOOL,
     PRODUCT_IMAGE_TOOL,
@@ -1754,13 +1845,15 @@ async def _register_distributor_id(http_client, sender_phone: str, id_distribuid
     distributor_id = (id_distribuidor or "").strip()
     if len(re.sub(r"\W", "", distributor_id)) < 3:
         return "ERROR: el ID no parece válido; pídele que lo revise y te lo escriba completo."
-    if storage.get_member(sender_phone):
-        return ("OK: esta persona es SOCIA ACTIVA de I'AM y ya tiene su descuento de por vida aplicado automáticamente "
-                "en sus cotizaciones; no hace falta validar su ID.")
+    profile = storage.get_verified_profile(sender_phone)
+    if profile:
+        return (f"OK: esta persona ya tiene su ID ({profile.get('empresario_id') or 'registrado'}) verificado y su "
+                f"{profile['member_discount_pct']:g}% de descuento se aplica automáticamente en sus cotizaciones; no "
+                f"hace falta validarlo de nuevo ni pedírselo.")
     order = storage.get_active_order(sender_phone)
     quote_note = ""
     if not order and producto:
-        quote_note = await _start_quote(sender_phone, producto=producto)
+        quote_note = await _start_quote(sender_phone, producto=producto, http_client=http_client)
         order = storage.get_active_order(sender_phone)
     if not order or order.get("status") == "en_revision":
         return ("ERROR: no hay una cotización en curso a la que aplicar el ID. Vuelve a llamar esta función "
@@ -1800,7 +1893,8 @@ async def _cancel_discount_validation(http_client, sender_phone: str, **_ignored
 
 async def _validate_distributor_discount(
     http_client, telefono_cliente: str = None, id_activo: bool = None, porcentaje: float = None,
-    alcance: str = None, restricciones: str = None, monto_con_descuento: float = None, **_ignored,
+    alcance: str = None, restricciones: str = None, monto_con_descuento: float = None, id_patrocinador: str = None,
+    validated_by: str = None, **_ignored,
 ) -> str:
     """Ejecutado solo desde la conversación de Belén (staff), nunca desde la del cliente."""
     order = storage.get_pending_discount_order(re.sub(r"\D", "", telefono_cliente or ""))
@@ -1846,9 +1940,19 @@ async def _validate_distributor_discount(
     _get_history(updated["phone"]).append({"role": "assistant", "content": text})
     logger.info("Validación de descuento orden %s: %s (%s%%).", order["id"], updated["discount_status"], porcentaje)
     if id_activo:
+        # Memoria del distribuidor: nombre, WhatsApp e ID verificados; su descuento se aplica solo en adelante.
+        sponsor = storage.get_profile_by_empresario_id(id_patrocinador) if id_patrocinador else None
+        storage.save_verified_profile(
+            updated["phone"], kind="distribuidor", discount_pct=float(porcentaje), empresario_id=updated["distributor_id"],
+            name=customer.get("name"), scope=alcance, notes=restricciones, verified_by=validated_by or SALES_PHONE_NUMBER,
+            sponsor_empresario_id=id_patrocinador, sponsor_phone=(sponsor or {}).get("phone"),
+        )
         return (f"OK: descuento aprobado para {updated['phone']}: {porcentaje:g}% → producto "
                 f"{distributor_validation.money(discounted)} (público {distributor_validation.money(public)}). "
-                f"Ya le mandé su precio al cliente.")
+                f"Ya le mandé su precio al cliente y guardé su ID {updated['distributor_id']}: en sus próximas compras "
+                f"el descuento se aplica solo"
+                + (" (con restricciones: esas se vuelven a consultar contigo usando su ID guardado)." if alcance == "restringido" else ".")
+                + ("" if id_patrocinador else " Si sabes quién es su líder/patrocinador, dime su ID para su red."))
     return f"OK: ID marcado como no válido; el cliente {updated['phone']} quedó a precio público y ya se le avisó."
 
 
@@ -1900,10 +2004,11 @@ async def _forward_order_to_logistics(http_client: httpx.AsyncClient, order: dic
     await _send_whatsapp_image_by_id(http_client, LOGISTICS_PHONE_NUMBER, order.get("proof_media_id"), "Comprobante de pago")
 
 
-async def _start_quote(sender_phone: str, producto: str = None, monto_producto: str = None) -> str:
+async def _start_quote(sender_phone: str, producto: str = None, monto_producto: str = None, http_client=None,
+                       **_ignored) -> str:
     existing = storage.get_active_order(sender_phone)
     if existing and existing.get("kind") == "regalo_inscripcion":
-        member = storage.get_member(sender_phone)
+        member = storage.get_verified_profile(sender_phone)
         official = pricing.quote_public_price(producto)
         price_info = ""
         if member and official:
@@ -1941,19 +2046,31 @@ async def _start_quote(sender_phone: str, producto: str = None, monto_producto: 
         monto_producto = official_text
     order_id = storage.create_quote(sender_phone, product=producto, amount_expected=monto_producto)
     logger.info("Cotización %s creada para %s (producto=%s, monto=%s)", order_id, sender_phone, producto, monto_producto)
-    member = storage.get_member(sender_phone)
+    member = storage.get_verified_profile(sender_phone)
     public_value = distributor_validation.parse_money(monto_producto)
-    if member and public_value:
-        pct = member.get("member_discount_pct") or pricing.MEMBER_DISCOUNT_PCT
-        member_amount = distributor_validation.compute_discount(public_value, pct)
-        storage.request_distributor_discount(order_id, f"SOCIO-TEO-{member.get('member_enrollment_id')}")
-        storage.resolve_distributor_discount(order_id, True, pct, "general",
-                                             "Socio activado por TEO: descuento de por vida",
-                                             distributor_validation.money(member_amount))
+    if member and public_value and member.get("discount_scope") == "restringido" and member.get("empresario_id"):
+        # Descuento con restricciones: depende del producto, así que se consulta a Belén con el ID ya guardado.
+        storage.request_distributor_discount(order_id, member["empresario_id"])
+        if http_client is not None:
+            await distributor_validation.notify_sales(http_client, storage.get_order(order_id))
         price_note += (
-            f" Es SOCIO ACTIVO: ya se le aplicó su {pct:g}% de por vida; su producto queda en "
+            f" Es DISTRIBUIDOR con ID {member['empresario_id']} ya verificado; su descuento tiene restricciones, así que "
+            f"el sistema ya mandó a validar este producto con Ventas usando su ID guardado. NO le pidas su ID; dile que "
+            f"en cuanto se confirme le llega su precio final."
+        )
+    elif member and public_value:
+        pct = member["member_discount_pct"]
+        member_amount = distributor_validation.compute_discount(public_value, pct)
+        label = member.get("empresario_id") or f"SOCIO-TEO-{member.get('member_enrollment_id')}"
+        storage.request_distributor_discount(order_id, label)
+        storage.resolve_distributor_discount(order_id, True, pct, "general",
+                                             "Descuento automático de ficha verificada",
+                                             distributor_validation.money(member_amount))
+        kind = "SOCIO ACTIVO" if member.get("member_since") else "DISTRIBUIDOR con ID verificado"
+        price_note += (
+            f" Es {kind}: ya se le aplicó automáticamente su {pct:g}%; su producto queda en "
             f"{distributor_validation.money(member_amount)} (precio público {monto_producto}). Díselo con claridad y NO "
-            f"le preguntes por ID de distribuidor."
+            f"le preguntes por su ID de empresario."
         )
     id_question = "" if member else (
         " En ese mismo mensaje pregúntale con amabilidad si cuenta con su ID de empresario o distribuidor de I'AM "
@@ -2340,6 +2457,10 @@ async def _authorize_order(
     logger.info("Pedido de %s AUTORIZADO por control. Entrega estimada: %s", matched_phone, final_estimate)
     await _forward_order_to_logistics(http_client, updated_order)
     await _notify_ceo_of_purchase(http_client, updated_order)
+    try:
+        network_commissions.record_purchase(updated_order)
+    except Exception:
+        logger.exception("No se pudo registrar la compra de red de la orden %s.", updated_order.get("id"))
 
     customer = storage.get_customer(matched_phone)
     name = customer.get("name") if customer else None
@@ -2625,6 +2746,17 @@ enrollment_flow.configure(
     log_review=lambda text: storage.log_message(sales_coach.history_key(SALES_PHONE_NUMBER), "assistant", text),
 )
 
+network_commissions.configure(
+    send_text=lambda http, to, text: send_whatsapp_message(http, to, text),
+    send_document=lambda http, to, data, filename, caption: _upload_and_send_document(http, to, data, filename, caption),
+    send_image=lambda http, to, media_id, caption: _send_whatsapp_image_by_id(http, to, media_id, caption),
+    send_template=lambda http, to, name, params: _send_template(http, to, name, params),
+    download=lambda http, media_id: _download_whatsapp_media(http, media_id),
+    control_phones=tuple(sorted(CONTROL_PHONE_NUMBERS)),
+    sales_phone=SALES_PHONE_NUMBER,
+    remember=_remember_for_client,
+)
+
 STAFF_ALMA_PROMPT = """Eres un asistente interno (NO de cara a clientes) que ayuda a Alma Benítez, CEO de \
 I'AM, a responder casos clínicos delicados que TEO le escaló. Cuando te escriba con una recomendación \
 técnica para un caso (identificando al cliente por su teléfono), usa la función `responder_caso_clinico` con \
@@ -2638,7 +2770,12 @@ mensaje en español del humano y llamar a la función `autorizar_pedido` con: el
 mencione (solo dígitos), si aprueba o rechaza el pago, y opcionalmente un tiempo de entrega si quiere \
 sobreescribir el que el cliente ya eligió al cotizar su envío (normalmente no hace falta darlo de nuevo). Si \
 no puedes identificar el teléfono del cliente en el mensaje, NO llames a la función: responde en texto \
-pidiendo que lo incluya."""
+pidiendo que lo incluya.
+También revisas los reportes de comisiones de líderes que TEO genera en cada corte (días 14 y 29): si dice que el \
+reporte está correcto ("correcto", "está bien", "valídalo"), usa `validar_reporte_comisiones`; si dice que hay un error \
+o discrepancia, usa `reportar_error_comisiones` con lo que dijo; si pregunta cómo va o quiere verlo, usa \
+`ver_reporte_comisiones`. Un "confirmado <teléfono>" sigue siendo autorizar un pago. Las fotos de comprobantes de \
+comisión y el Excel corregido se procesan solos al recibirlos."""
 
 STAFF_ARMANDO_PROMPT = """Eres un asistente interno (NO de cara a clientes) que ayuda a Armando (Logística, \
 cotizaciones y puntos de entrega) de I'AM. Puedes hacer 2 cosas: (1) aprobar o rechazar una cotización de \
@@ -2650,7 +2787,8 @@ puedes identificar el teléfono del cliente, NO llames a la función: responde e
 STAFF_YENI_PROMPT = """Eres un asistente interno (NO de cara a clientes) que ayuda a Yeni (CEDIS \
 Chimalhuacán) de I'AM. Para altas de nuevos socios del flujo con pago (te llega un paquete con INE y selfie), usa \
 `revisar_alta_socio` con el teléfono del aspirante y la acción (aprobar, pedir_fotos con motivo, o rechazar con \
-motivo). Además puedes: (1) confirmar que ya diste de alta a un nuevo socio con \
+motivo). Para aprobar son OBLIGATORIOS el ID de empresario que I'AM le asignó y el % de descuento: si falta alguno, NO \
+llames a la función y pídeselo. Además puedes: (1) confirmar que ya diste de alta a un nuevo socio con \
 `confirmar_inscripcion` (teléfono del aspirante, tiempo en que se refleja la inscripción), o (2) actualizar \
 el inventario de un producto con `actualizar_inventario` (producto, cantidad en existencia). Interpreta el \
 mensaje del humano y llama a la función que corresponda. Si no puedes identificar el teléfono del aspirante, \
@@ -2723,10 +2861,11 @@ async def _handle_belen_message(http_client: httpx.AsyncClient, sender_phone: st
         reply = await sales_coach.reply_to(
             http_client, sender_phone, user_text,
             extra_tools=[CONFIRM_ENROLLMENT_TOOL, VALIDATE_DISCOUNT_TOOL, LIST_PENDING_DISCOUNTS_TOOL,
-                         REVIEW_ENROLLMENT_TOOL],
+                         REVIEW_ENROLLMENT_TOOL, SET_COMMISSION_TOOL],
             extra_dispatch={
                 "confirmar_inscripcion": _confirm_enrollment,
                 "revisar_alta_socio": _review_handler_for_belen(sender_phone),
+                "fijar_comision_lider": network_commissions.set_leader_commission,
                 "validar_descuento_distribuidor": _validate_distributor_discount,
                 "ver_validaciones_pendientes": _list_pending_discounts,
             },
@@ -3289,6 +3428,7 @@ async def lifespan(app: FastAPI):
         run_followup_loop(app.state.http_client, WHATSAPP_API_URL, WHATSAPP_TOKEN)
     )
     app.state.discount_task = asyncio.create_task(distributor_validation.run_reminder_loop(app.state.http_client))
+    app.state.commission_task = asyncio.create_task(network_commissions.run_commission_loop(app.state.http_client))
     app.state.coach_task = asyncio.create_task(
         sales_coach.run_coach_loop(
             app.state.http_client, WHATSAPP_API_URL, WHATSAPP_TOKEN, SALES_PHONE_NUMBER,
@@ -3303,6 +3443,7 @@ async def lifespan(app: FastAPI):
     app.state.followup_task.cancel()
     app.state.coach_task.cancel()
     app.state.discount_task.cancel()
+    app.state.commission_task.cancel()
     await app.state.http_client.aclose()
 
 
@@ -3373,6 +3514,11 @@ async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> N
 
     sender_normalized = _normalize_phone(sender_phone)
     is_staff_number = sender_normalized in STAFF_PHONE_NUMBERS
+    try:
+        # Registra la actividad (ventana de 24 h) y entrega reportes/comisiones que esperaban su respuesta.
+        await network_commissions.on_inbound(http_client, sender_phone)
+    except Exception:
+        logger.exception("Error entregando pendientes a %s.", sender_phone)
 
     if is_staff_number and message.get("type") == "text":
         toggle_text = message.get("text", {}).get("body", "").strip().lower()
@@ -3396,6 +3542,11 @@ async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> N
     def _authorize_handler_for(staff_phone: str):
         async def _handler(http_client, **kw):
             return await _authorize_order(http_client, aprobado_por=staff_phone, **kw)
+        return _handler
+
+    def _commission_handler_for(func, staff_phone: str):
+        async def _handler(http_client, **kw):
+            return await func(http_client, staff_phone=staff_phone, **kw)
         return _handler
 
     def _review_handler_for(staff_phone: str):
@@ -3427,8 +3578,13 @@ async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> N
         (
             {_normalize_phone(n) for n in CONTROL_PHONE_NUMBERS},
             STAFF_CONTROL_PROMPT,
-            [AUTHORIZE_ORDER_TOOL],
-            {"autorizar_pedido": _authorize_handler_for(sender_phone)},
+            [AUTHORIZE_ORDER_TOOL, VALIDATE_COMMISSIONS_TOOL, COMMISSION_ERROR_TOOL, VIEW_COMMISSIONS_TOOL],
+            {
+                "autorizar_pedido": _authorize_handler_for(sender_phone),
+                "validar_reporte_comisiones": _commission_handler_for(network_commissions.validate_report, sender_phone),
+                "reportar_error_comisiones": _commission_handler_for(network_commissions.report_error, sender_phone),
+                "ver_reporte_comisiones": network_commissions.view_report,
+            },
         ),
         (
             {_normalize_phone(LOGISTICS_PHONE_NUMBER)},
@@ -3477,6 +3633,19 @@ async def process_webhook_event(body: dict, http_client: httpx.AsyncClient) -> N
             if coach_text:
                 await _handle_belen_message(http_client, sender_phone, coach_text)
         return
+
+    if not staff_distributor_active and sender_normalized in {_normalize_phone(n) for n in CONTROL_PHONE_NUMBERS}:
+        # Control (Ara/Benjamín): Excel corregido del reporte de comisiones y comprobantes de pago a líderes.
+        if message.get("type") == "document":
+            if not await network_commissions.on_control_document(http_client, sender_phone, message.get("document", {})):
+                await send_whatsapp_message(http_client, sender_phone,
+                                            "Recibí tu archivo, pero no hay ningún reporte de comisiones esperando correcciones.")
+            return
+        if message.get("type") == "image":
+            if not await network_commissions.on_control_image(http_client, sender_phone, message.get("image", {})):
+                await send_whatsapp_message(http_client, sender_phone,
+                                            "Recibí tu imagen, pero no hay comprobantes de comisión pendientes por registrar.")
+            return
 
     if not staff_distributor_active:
         for numbers, system_prompt, tools, dispatch in staff_routes:
@@ -3632,7 +3801,7 @@ async def _dispatch_tool_call(http_client: httpx.AsyncClient, sender_phone: str,
     if name == "avanzar_curso_compartir":
         return await _advance_share_course(sender_phone, **args)
     if name == "iniciar_cotizacion":
-        return await _start_quote(sender_phone, **args)
+        return await _start_quote(sender_phone, http_client=http_client, **args)
     if name == "elegir_envio":
         return await _choose_shipping(sender_phone, **args)
     if name == "agregar_referencia_envio":
@@ -3645,6 +3814,8 @@ async def _dispatch_tool_call(http_client: httpx.AsyncClient, sender_phone: str,
         return await enrollment_flow.register_prospect(http_client, sender_phone, **args)
     if name == "iniciar_inscripcion_directa":
         return await enrollment_flow.start_direct(http_client, sender_phone, **args)
+    if name == "registrar_datos_aspirante":
+        return await enrollment_flow.register_applicant_data(http_client, sender_phone, **args)
     if name == "mostrar_catalogo_visual":
         return await _send_catalog_infographic(http_client, sender_phone, **args)
     if name == "mostrar_imagen_producto":
@@ -4174,6 +4345,51 @@ async def _find_official_video(protocolo: str = None, productos: list = None, ma
         "OK: videos oficiales de I'AM para este caso (comparte el enlace tal cual, sin modificarlo, de forma "
         "natural dentro de tu explicación):\n" + _format_official_videos(videos)
     )
+
+
+async def _upload_and_send_document(
+    http_client: httpx.AsyncClient, to: str, data: bytes, filename: str, caption: str = None,
+    mime_type: str = network_commissions.XLSX_MIME,
+) -> bool:
+    headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}"}
+    try:
+        upload = await http_client.post(
+            WHATSAPP_MEDIA_URL, headers=headers,
+            data={"messaging_product": "whatsapp", "type": mime_type},
+            files={"file": (filename, data, mime_type)},
+        )
+        if upload.status_code >= 400:
+            logger.error("Error al subir el documento %s (%s): %s", filename, upload.status_code, upload.text)
+            return False
+        payload = {"messaging_product": "whatsapp", "to": to, "type": "document",
+                   "document": {"id": upload.json().get("id"), "filename": filename, "caption": caption or ""}}
+        sent = await http_client.post(WHATSAPP_API_URL, headers={**headers, "Content-Type": "application/json"},
+                                      json=payload)
+        if sent.status_code >= 400:
+            logger.error("Error al enviar el documento %s a %s (%s): %s", filename, to, sent.status_code, sent.text)
+            return False
+    except httpx.HTTPError:
+        logger.exception("Fallo de red al enviar el documento %s.", filename)
+        return False
+    return True
+
+
+async def _send_template(http_client: httpx.AsyncClient, to: str, template_name: str, params: list) -> bool:
+    payload = {
+        "messaging_product": "whatsapp", "to": to, "type": "template",
+        "template": {"name": template_name, "language": {"code": "es_MX"},
+                     "components": [{"type": "body", "parameters": [{"type": "text", "text": str(p)} for p in params]}]},
+    }
+    headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}", "Content-Type": "application/json"}
+    try:
+        response = await http_client.post(WHATSAPP_API_URL, headers=headers, json=payload)
+    except httpx.HTTPError:
+        logger.exception("Fallo de red enviando la plantilla %s a %s.", template_name, to)
+        return False
+    if response.status_code >= 400:
+        logger.error("Plantilla %s rechazada para %s (%s): %s", template_name, to, response.status_code, response.text)
+        return False
+    return True
 
 
 async def _download_whatsapp_media(http_client: httpx.AsyncClient, media_id: str):

@@ -90,5 +90,12 @@ def enrollment_offer() -> dict:
     }
 
 
-def member_price(public_amount: float) -> float:
-    return round(public_amount * (1 - MEMBER_DISCOUNT_PCT / 100), 2)
+def member_price(public_amount: float, discount_pct: float = None) -> float:
+    """Precio con el descuento de la ficha verificada (por defecto el estándar de socio)."""
+    pct = MEMBER_DISCOUNT_PCT if discount_pct is None else discount_pct
+    return round(public_amount * (1 - pct / 100), 2)
+
+
+def commission_amount(volume: float, commission_pct: float) -> float:
+    """Comisión del líder: volumen pagado por su red directa (con descuento, sin envío) × su %."""
+    return round(volume * commission_pct / 100, 2)

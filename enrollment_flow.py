@@ -26,6 +26,7 @@ logger = logging.getLogger("teo.altas")
 TEMPLATE_ALTA_SOCIO = "teo_alta_socio"
 TEO_DISPLAY_NUMBER = "+52 1 220 556 2940"
 REVIEW_ACTIONS = ("aprobar", "rechazar", "pedir_fotos")
+MAX_MEMBER_DISCOUNT_PCT = 60
 
 _cfg = {
     "api_url": None, "token": None,
@@ -128,23 +129,34 @@ def ping_text(prospect_name: str, sponsor_name: str) -> str:
     )
 
 
-def identity_request_text(name: str = None) -> str:
+ADDRESS_REQUEST = "tu dirección completa (calle, número, colonia, código postal y ciudad)"
+
+
+def identity_request_text(name: str = None, needs_address: bool = False) -> str:
     saludo = f"{name}, " if name else ""
     return (
         f"{saludo}¡tu pago ya fue confirmado! 🎉 Para activar tu cuenta y asegurar tu membresía, necesitamos "
         f"validar tu identidad. Por favor envíame en este chat: 1) Foto clara de tu INE/Identificación por el "
         f"frente. 2) Una selfie sosteniendo tu identificación al lado de tu rostro."
+        + (f" 3) Escríbeme {ADDRESS_REQUEST}." if needs_address else "")
     )
 
 
-def welcome_text(name: str = None) -> str:
+def welcome_text(name: str = None, discount_pct: float = None, empresario_id: str = None) -> str:
     o = _offer()
+    pct = f"{discount_pct:g}" if discount_pct is not None else str(o["discount_pct"])
     saludo = f"¡Bienvenid@ a I'AM, {name}! 🎉" if name else "¡Bienvenid@ a I'AM! 🎉"
+    id_block = (
+        f"Tu *ID de empresario I'AM es: {empresario_id}*\nGuárdalo muy bien: es tu identificación como socio "
+        f"para tus compras, tu red y tus comisiones. Si algún día se te olvida, pregúntamelo y te lo recuerdo.\n\n"
+        if empresario_id else ""
+    )
     return (
         f"{saludo} Tu alta como socio ya quedó activa.\n\n"
+        + id_block +
         f"Tus beneficios:\n"
-        f"• *{o['discount_pct']}% de descuento de por vida* en todo el catálogo: se aplica solo en cada compra "
-        f"que hagas conmigo.\n"
+        f"• *{pct}% de descuento de por vida* en todo el catálogo: se aplica solo en cada compra "
+        f"que hagas conmigo, sin que me vuelvas a dar tu ID.\n"
         f"• Tu *{o['gift']} de regalo*"
         + (f" (valor de {_money(o['gift_value'])})" if o["gift_value"] else "")
         + ".\n\nPara enviarte tu Combo Detox, compárteme la ubicación exacta de entrega con el clip 📎 → "
@@ -176,15 +188,22 @@ def _review_package(enrollment: dict) -> str:
     if enrollment.get("origin") == "patrocinador":
         sponsor = (f"{enrollment.get('sponsor_name') or 'sin nombre'} · ID de empresario "
                    f"{enrollment.get('sponsor_distributor_number') or 'sin ID'} · tel. {enrollment.get('sponsor_phone')}")
+    elif enrollment.get("sponsor_distributor_number"):
+        known = (f"{enrollment.get('sponsor_name') or 'sin nombre'} · tel. {enrollment['sponsor_phone']}"
+                 if enrollment.get("sponsor_phone") else "⚠️ ese ID no está registrado en TEO, confírmalo")
+        sponsor = f"ID de empresario {enrollment['sponsor_distributor_number']} (lo dio el aspirante) · {known}"
     else:
         sponsor = "Inscripción directa (sin patrocinador)"
     return (
         f"🪪 *Alta de nuevo socio — revisión de identidad*\n"
         f"Aspirante: {enrollment.get('full_name') or 'sin nombre'} ({enrollment['phone']})\n"
+        f"Dirección: {enrollment.get('address') or 'no la dio'}\n"
         f"Patrocinador: {sponsor}\n"
         f"Pago de {_money(_offer()['fee'])}: ✅ confirmado por {approver_text}\n\n"
-        f"Revisa que la INE sea legible y que la selfie muestre a la misma persona sosteniéndola. Responde:\n"
-        f"• \"aprobar {enrollment['phone']}\" para activarlo (30% de por vida + Combo Detox + entrenamiento)\n"
+        f"Revisa que la INE sea legible, que la selfie muestre a la misma persona sosteniéndola y que los datos "
+        f"coincidan (si ves un intento de estafa, recházala). Responde:\n"
+        f"• \"aprobar {enrollment['phone']}, ID <ID de empresario que le asignó I'AM>, <%> de descuento\" "
+        f"(normalmente {_offer()['discount_pct']}%) para activarlo con Combo Detox + entrenamiento\n"
         f"• \"pedir fotos {enrollment['phone']}: <motivo>\" si no se ven bien\n"
         f"• \"rechazar {enrollment['phone']}: <motivo>\" si no procede"
     )
@@ -347,23 +366,73 @@ async def register_prospect(http, sender_phone: str, nombre_completo: str = None
             "para validar su identidad. Si aún no manda su comprobante, recuérdaselo con amabilidad.")
 
 
-async def start_direct(http, sender_phone: str, nombre_completo: str = None, **_ignored) -> str:
+async def start_direct(http, sender_phone: str, nombre_completo: str = None, tiene_patrocinador: bool = None,
+                       id_patrocinador: str = None, direccion: str = None, **_ignored) -> str:
     if storage.get_member(sender_phone):
         return "OK: esta persona ya es socia activa de I'AM; no necesita inscribirse de nuevo."
     if storage.get_open_enrollment_for_prospect(sender_phone):
         return "OK: ya tiene su inscripción en curso; ayúdala a continuar desde donde se quedó."
+    if tiene_patrocinador is None:
+        return ("ERROR: antes de iniciar pregúntale si tiene un patrocinador (alguien que la invitó a I'AM) y vuelve "
+                "a llamar esta función con `tiene_patrocinador`.")
+    sponsor_id = (id_patrocinador or "").strip()
+    if tiene_patrocinador and len(re.sub(r"\W", "", sponsor_id)) < 3:
+        return "ERROR: dijo que tiene patrocinador: pídele el ID de empresario I'AM de su patrocinador."
     busy = _block_if_busy(sender_phone)
     if busy:
         return busy
     customer = storage.get_customer(sender_phone) or {}
     name = re.sub(r"\s+", " ", nombre_completo or customer.get("name") or "").strip() or None
     enrollment_id = storage.create_enrollment_flow("directo", prospect_phone=sender_phone, full_name=name)
+    address = re.sub(r"\s+", " ", direccion or "").strip() or None
+    sponsor_fields = {}
+    if tiene_patrocinador:
+        leader = storage.get_profile_by_empresario_id(sponsor_id) or {}
+        sponsor_fields = {"sponsor_distributor_number": sponsor_id, "sponsor_name": leader.get("name"),
+                          "sponsor_phone": leader.get("phone")}
+    storage.set_enrollment_stage(enrollment_id, "pago_pendiente", address=address, **sponsor_fields)
     storage.create_enrollment_payment_order(sender_phone, enrollment_id, _product_label(), _money(_offer()["fee"]))
     logger.info("Alta directa %s iniciada por %s.", enrollment_id, sender_phone)
     await _say(http, sender_phone, payment_instructions(sponsored=False))
+    missing = [x for x, ok in (("su nombre completo", name), (ADDRESS_REQUEST, address)) if not ok]
     return ("OK: inscripción iniciada y YA le envié el texto con la cuota, los beneficios y los datos bancarios. NO "
             "repitas cifras ni datos bancarios; solo acompáñalo con calidez y recuérdale mandar la captura de su "
-            "comprobante." + ("" if name else " Pregúntale también su nombre completo."))
+            "comprobante." + (f" Pídele también {' y '.join(missing)} y regístralo con `registrar_datos_aspirante`."
+                              if missing else ""))
+
+
+async def register_applicant_data(http, sender_phone: str, direccion: str = None, nombre_completo: str = None,
+                                  **_ignored) -> str:
+    """El aspirante (directo o invitado) da su dirección o su nombre completo."""
+    enrollment = storage.get_open_enrollment_for_prospect(sender_phone)
+    if not enrollment:
+        return "ERROR: esta persona no tiene un alta de socio en curso."
+    address = re.sub(r"\s+", " ", direccion or "").strip()
+    name = re.sub(r"\s+", " ", nombre_completo or "").strip()
+    if address and len(address) < 12:
+        return f"ERROR: la dirección se ve incompleta; pídele {ADDRESS_REQUEST}."
+    if not address and not name:
+        return "ERROR: no recibí ningún dato; pásame la dirección o el nombre completo que te dio."
+    fields = {"address": address} if address else {}
+    storage.set_enrollment_stage(enrollment["id"], enrollment["flow_stage"], **fields)
+    if name and len(name.split(" ")) >= 2:
+        with storage._connection() as conn:
+            conn.execute("UPDATE enrollments SET full_name = ? WHERE id = ?", (name, enrollment["id"]))
+    enrollment = storage.get_enrollment(enrollment["id"])
+    if (enrollment["flow_stage"] == "identidad_pendiente" and enrollment.get("ine_media_id")
+            and enrollment.get("face_media_id") and enrollment.get("address")):
+        await _submit_for_review(http, enrollment)
+        return ("OK: datos registrados y YA le avisé que su identidad está en revisión con el equipo. No lo repitas "
+                "ni digas que está validado.")
+    pending = []
+    if not enrollment.get("address"):
+        pending.append(ADDRESS_REQUEST)
+    if enrollment["flow_stage"] == "identidad_pendiente":
+        if not enrollment.get("ine_media_id"):
+            pending.append("la foto de su INE por el frente")
+        elif not enrollment.get("face_media_id"):
+            pending.append("la selfie sosteniendo su INE")
+    return "OK: datos registrados." + (f" Aún falta: {', '.join(pending)}." if pending else "")
 
 
 # ---------------------------------------------------------------------------
@@ -384,7 +453,8 @@ async def on_payment_approved(http, order: dict, approver_phone: str = None) -> 
     enrollment = storage.get_enrollment(enrollment["id"])
     payer = order["phone"]
     if enrollment["origin"] == "directo":
-        await _say(http, payer, identity_request_text((enrollment.get("full_name") or "").split(" ")[0] or None))
+        await _say(http, payer, identity_request_text((enrollment.get("full_name") or "").split(" ")[0] or None,
+                                                      needs_address=not enrollment.get("address")))
         return "Pago de inscripción autorizado. Ya le pedí su INE y su selfie al aspirante."
     if enrollment.get("phone"):
         await _say(http, payer, f"¡Tu pago de la inscripción ya fue confirmado! 🎉 Ya le escribí a "
@@ -419,8 +489,22 @@ async def on_identity_photo(http, sender_phone: str, image_data: dict, enrollmen
         await _say(http, sender_phone, "¡Gracias! Ya tengo tu identificación. Ahora mándame una *selfie sosteniendo "
                                        "tu INE al lado de tu rostro* (tomada en este momento).")
         return
-    storage.set_enrollment_stage(enrollment["id"], "revision_identidad", face_media_id=media_id, status="enviado")
+    if enrollment.get("face_media_id"):
+        await _say(http, sender_phone, "Ya tengo tus dos fotos 🙌" + (
+            f" Solo me falta {ADDRESS_REQUEST}." if not enrollment.get("address") else ""))
+        return
+    storage.set_enrollment_stage(enrollment["id"], "identidad_pendiente", face_media_id=media_id)
     storage.log_message(sender_phone, "user", "[selfie con INE]")
+    enrollment = storage.get_enrollment(enrollment["id"])
+    if not enrollment.get("address"):
+        await _say(http, sender_phone, f"¡Gracias, ya tengo tus fotos! 🙌 Para terminar, escríbeme {ADDRESS_REQUEST}.")
+        return
+    await _submit_for_review(http, enrollment)
+
+
+async def _submit_for_review(http, enrollment: dict) -> None:
+    sender_phone = enrollment["phone"]
+    storage.set_enrollment_stage(enrollment["id"], "revision_identidad", status="enviado")
     enrollment = storage.get_enrollment(enrollment["id"])
     package = _review_package(enrollment)
     for reviewer in _cfg["reviewers"]:
@@ -439,7 +523,8 @@ async def on_identity_photo(http, sender_phone: str, image_data: dict, enrollmen
 # ---------------------------------------------------------------------------
 
 async def review(http, telefono_aspirante: str = None, accion: str = None, motivo: str = None,
-                 reviewer_phone: str = None, **_ignored) -> str:
+                 reviewer_phone: str = None, id_empresario: str = None, descuento_pct: float = None,
+                 **_ignored) -> str:
     if accion not in REVIEW_ACTIONS:
         return f"ERROR: acción inválida; usa una de: {', '.join(REVIEW_ACTIONS)}."
     enrollment = storage.get_enrollment_for_review(re.sub(r"\D", "", telefono_aspirante or ""))
@@ -470,11 +555,28 @@ async def review(http, telefono_aspirante: str = None, accion: str = None, motiv
         return (f"Alta de {name} rechazada ({motivo}). Ojo: su pago de {_money(_offer()['fee'])} ya estaba "
                 f"confirmado; coordina con Ara el reembolso o la solución.")
 
-    pct = pricing.MEMBER_DISCOUNT_PCT
+    new_id = (id_empresario or "").strip()
+    if len(re.sub(r"\W", "", new_id)) < 3 or descuento_pct is None:
+        return ("ERROR: para aprobar necesito el ID de empresario que I'AM le asignó y el % de descuento que le "
+                f"corresponde (normalmente {_offer()['discount_pct']}%). Pídeselos a quien aprueba.")
+    pct = float(descuento_pct)
+    if not 0 < pct <= MAX_MEMBER_DISCOUNT_PCT:
+        return f"ERROR: el descuento debe ser mayor a 0 y máximo {MAX_MEMBER_DISCOUNT_PCT}%."
+    taken = storage.get_profile_by_empresario_id(new_id)
+    if taken and taken["phone"][-10:] != phone[-10:]:
+        return (f"ERROR: el ID {new_id} ya está registrado a otra persona ({taken.get('name') or taken['phone']}). "
+                f"Confírmalo antes de aprobar.")
     storage.activate_member(phone, enrollment["id"], pct, approved_by=reviewer_phone)
-    if first:
-        storage.upsert_customer(phone, name=enrollment.get("full_name"))
-    await _say(http, phone, welcome_text(first))
+    sponsor_id = enrollment.get("sponsor_distributor_number")
+    storage.save_verified_profile(
+        phone, kind="socio", discount_pct=pct, empresario_id=new_id, name=enrollment.get("full_name"),
+        scope="general", notes="Socio activado por TEO", verified_by=reviewer_phone,
+        sponsor_empresario_id=sponsor_id, sponsor_phone=enrollment.get("sponsor_phone"),
+        address=enrollment.get("address"),
+    )
+    if enrollment.get("sponsor_phone") and sponsor_id:
+        storage.set_customer_empresario_id(enrollment["sponsor_phone"], sponsor_id)
+    await _say(http, phone, welcome_text(first, pct, new_id))
     gift_note = ""
     if storage.get_active_order(phone):
         gift_note = " Tiene otro pedido en curso: su Combo Detox se le enviará cuando lo termine."
@@ -485,10 +587,16 @@ async def review(http, telefono_aspirante: str = None, accion: str = None, motiv
         await _say(http, phone, course)
     if enrollment.get("sponsor_phone"):
         await _say(http, enrollment["sponsor_phone"], sponsor_activated_text(name))
-    logger.info("Alta %s ACTIVADA por %s.", enrollment["id"], reviewer_phone)
-    return (f"✅ {name} quedó activ@ como socio: {pct}% de por vida, bienvenida y día 1 del entrenamiento enviados"
+    logger.info("Alta %s ACTIVADA por %s (ID %s, %s%%).", enrollment["id"], reviewer_phone, new_id, pct)
+    leader = storage.get_profile_by_empresario_id(sponsor_id) if sponsor_id else None
+    commission_note = ""
+    if sponsor_id and (not leader or leader.get("commission_pct") is None):
+        commission_note = (f" Su líder (ID {sponsor_id}) aún no tiene % de comisión: dímelo cuando lo sepas para "
+                           f"sus cortes (\"comisión de <líder> <%>\").")
+    return (f"✅ {name} quedó activ@ como socio con ID {new_id} y {pct:g}% de descuento de por vida (ya guardado: se "
+            f"le aplica solo en cada compra); bienvenida y día 1 del entrenamiento enviados"
             + (" y su patrocinador ya fue notificado" if enrollment.get("sponsor_phone") else "")
-            + f". Le pedí su ubicación para cotizar el envío de su Combo Detox.{gift_note}")
+            + f". Le pedí su ubicación para cotizar el envío de su Combo Detox.{gift_note}{commission_note}")
 
 
 # ---------------------------------------------------------------------------
@@ -500,9 +608,15 @@ def stage_notes(phone: str) -> list:
     notes = []
     as_prospect = storage.get_open_enrollment_for_prospect(phone)
     if as_prospect and as_prospect["flow_stage"] == "identidad_pendiente":
-        missing = "su INE por el frente" if not as_prospect.get("ine_media_id") else "la selfie sosteniendo su INE"
-        notes.append(f"Es un aspirante a socio con pago confirmado: falta {missing}. Pídesela con calidez; las fotos "
-                     f"se procesan solas al recibirlas. No digas que ya está validado ni inscrito.")
+        missing = []
+        if not as_prospect.get("ine_media_id"):
+            missing.append("la foto de su INE por el frente")
+        elif not as_prospect.get("face_media_id"):
+            missing.append("la selfie sosteniendo su INE al lado de su rostro")
+        if not as_prospect.get("address"):
+            missing.append(ADDRESS_REQUEST + " (cuando la escriba, regístrala YA con `registrar_datos_aspirante`)")
+        notes.append(f"Es un aspirante a socio con pago confirmado: falta {'; '.join(missing)}. Pídeselo con calidez; "
+                     f"las fotos se procesan solas al recibirlas. No digas que ya está validado ni inscrito.")
     elif as_prospect and as_prospect["flow_stage"] == "revision_identidad":
         notes.append("Su identidad está en revisión por el equipo. No digas que está validado ni inscrito; dile que en "
                      "cuanto terminen le avisas.")
@@ -523,10 +637,18 @@ def stage_notes(phone: str) -> list:
             "revision_identidad": "La identidad de su invitado está en revisión por el equipo.",
         }.get(stage, "")
         notes.append(text + missing)
-    member = storage.get_member(phone)
-    if member:
-        notes.append(f"Es SOCIO ACTIVO de I'AM: tiene {member.get('member_discount_pct') or pricing.MEMBER_DISCOUNT_PCT:g}% "
-                     f"de descuento de por vida que el sistema aplica solo al cotizar; no le pidas ID ni validación.")
+    profile = storage.get_verified_profile(phone)
+    if profile:
+        who = "SOCIO ACTIVO de I'AM" if profile.get("profile_kind") == "socio" or profile.get("member_since") else \
+            "DISTRIBUIDOR con ID ya verificado por Ventas"
+        id_text = (f" Su ID de empresario es {profile['empresario_id']}: si te lo pregunta o lo olvidó, recuérdaselo."
+                   if profile.get("empresario_id") else "")
+        restricted = (" Su descuento tiene restricciones: el sistema lo manda solo a validar con Ventas usando su ID "
+                      "guardado." if profile.get("discount_scope") == "restringido" else "")
+        notes.append(f"Es {who}: tiene {profile['member_discount_pct']:g}% de descuento que el sistema aplica solo al "
+                     f"cotizar; NUNCA le vuelvas a pedir su ID ni validación. Si quiere comprar, llama DE INMEDIATO a "
+                     f"`iniciar_cotizacion` con el producto: ahí se le aplica su descuento y te da su precio."
+                     f"{id_text}{restricted}")
     return notes
 
 

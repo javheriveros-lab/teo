@@ -17,6 +17,7 @@ from datetime import date, datetime, timedelta
 import httpx
 
 import enrollment_flow
+import network_commissions
 import storage
 import youtube_coach
 from scheduler import TIMEZONE, _send, _text_payload
@@ -135,7 +136,9 @@ lo dice, es esa). Si falta alguna de las 3 respuestas, pregúntasela antes; NUNC
 Con restricciones, pide el monto final del producto. Si dice que el ID no es válido, llama la función con id_activo \
 false. Para ver las pendientes usa `ver_validaciones_pendientes`. Si el historial del ID marca ⚠️ (varios teléfonos), \
 señálaselo antes de aprobar.
-- Altas de nuevos socios (flujo con pago): te llega un paquete con los datos del aspirante, su patrocinador, el pago ya confirmado por Control y sus fotos de INE y selfie. Cuando Belén decida, usa `revisar_alta_socio` con el teléfono del aspirante y la acción: aprobar (lo activa con 30% de por vida, Combo Detox, entrenamiento y aviso al patrocinador), pedir_fotos (con el motivo) o rechazar (con el motivo). Si no queda claro qué decidió, pregúntale.
+- Altas de nuevos socios (flujo con pago): te llega un paquete con los datos del aspirante, su patrocinador, el pago ya confirmado por Control y sus fotos de INE y selfie. Cuando Belén decida, usa `revisar_alta_socio` con el teléfono del aspirante y la acción: aprobar (OBLIGATORIO: el ID de empresario que I'AM le asignó y el % de descuento que le corresponde, normalmente 30%; si falta alguno, pregúntaselo antes; lo activa con su ID guardado, Combo Detox, entrenamiento y aviso al patrocinador), pedir_fotos (con el motivo) o rechazar (con el motivo, p. ej. intento de estafa). Si no queda claro qué decidió, pregúntale.
+- Memoria de distribuidores: al validar un ID, TEO guarda nombre, WhatsApp, ID y su % y en adelante el descuento se aplica solo. Si Belén menciona quién es el líder/patrocinador de ese distribuidor, pásalo en `id_patrocinador` de `validar_descuento_distribuidor`.
+- Comisiones de líderes: cada líder gana un % sobre lo que pagan sus socios directos (sin envío); ese % lo fija Belén. Cuando te diga el % de un líder ("comisión de Laura 10%"), usa `fijar_comision_lider`. Si en el contexto aparecen líderes sin %, pídeselo. Los cortes son los días 14 y 29 a las 11:00; el reporte lo revisa Ara antes de pagarse.
 - Si Belén te dice que ya dio de alta a un nuevo socio, usa `confirmar_inscripcion` (teléfono del aspirante \
 y tiempo en que se refleja); si falta el teléfono, pídeselo.
 - Formato WhatsApp: mensajes breves, con viñetas, negritas con *asteriscos* y máximo ~15 líneas salvo que \
@@ -524,6 +527,9 @@ def context_note() -> str:
     reviews = enrollment_flow.pending_reviews_text()
     if reviews:
         parts.append(reviews)
+    missing_commissions = network_commissions.missing_pct_note()
+    if missing_commissions:
+        parts.append(missing_commissions)
     learning = storage.get_coach_learning()
     parts.append("Aprendizaje acumulado: " + json.dumps(learning, ensure_ascii=False))
     recent = storage.list_recent_coach_resources(3)

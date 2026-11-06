@@ -1,4 +1,5 @@
 import os
+import re
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -248,8 +249,94 @@ def init_db() -> None:
             ("member_since", "member_since TEXT"),
             ("member_discount_pct", "member_discount_pct REAL"),
             ("member_enrollment_id", "member_enrollment_id INTEGER"),
+            # Ficha verificada (socio activado o distribuidor validado por Belén/Yeni): descuento
+            # automático en cada cotización sin volver a pedir el ID, y liga con su líder para comisiones.
+            ("empresario_id", "empresario_id TEXT"),
+            ("discount_scope", "discount_scope TEXT"),
+            ("discount_notes", "discount_notes TEXT"),
+            ("discount_verified_by", "discount_verified_by TEXT"),
+            ("discount_verified_at", "discount_verified_at TEXT"),
+            ("profile_kind", "profile_kind TEXT"),
+            ("sponsor_empresario_id", "sponsor_empresario_id TEXT"),
+            ("sponsor_phone", "sponsor_phone TEXT"),
+            ("commission_pct", "commission_pct REAL"),
+            ("address", "address TEXT"),
         ):
             _ensure_column(conn, "customers", column, ddl)
+        _ensure_column(conn, "enrollments", "address", "address TEXT")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS network_purchases (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_id INTEGER NOT NULL UNIQUE,
+                buyer_phone TEXT NOT NULL,
+                buyer_name TEXT,
+                buyer_empresario_id TEXT,
+                leader_empresario_id TEXT NOT NULL,
+                product TEXT,
+                amount_public REAL,
+                discount_pct REAL,
+                amount_paid REAL NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS commission_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                period_key TEXT NOT NULL UNIQUE,
+                period_start_utc TEXT NOT NULL,
+                period_end_utc TEXT NOT NULL,
+                label TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'revision_control',
+                validated_by TEXT,
+                validated_at TEXT,
+                notes TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS commission_lines (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id INTEGER NOT NULL,
+                position INTEGER NOT NULL,
+                leader_empresario_id TEXT NOT NULL,
+                leader_phone TEXT,
+                leader_name TEXT,
+                purchases INTEGER NOT NULL DEFAULT 0,
+                volume REAL NOT NULL DEFAULT 0,
+                commission_pct REAL,
+                commission REAL,
+                adjusted INTEGER NOT NULL DEFAULT 0,
+                proof_media_id TEXT,
+                delivery_status TEXT NOT NULL DEFAULT 'pendiente',
+                delivered_at TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS pending_deliveries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                phone_last10 TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                ref_id INTEGER NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                delivered_at TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS inbound_activity (
+                phone_last10 TEXT PRIMARY KEY,
+                last_at TEXT NOT NULL
+            )
+            """
+        )
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS campaign_content (
@@ -1789,7 +1876,8 @@ def set_enrollment_prospect(enrollment_id: int, phone: str, full_name: str) -> N
 def set_enrollment_stage(enrollment_id: int, stage: str, **fields) -> None:
     """Cambia la etapa y, si se dan, otros campos permitidos del alta."""
     allowed = {"status", "payment_approved_by", "ping_message_id", "ping_failed_notified", "approved_by",
-               "rejection_reason", "ine_media_id", "face_media_id"}
+               "rejection_reason", "ine_media_id", "face_media_id", "address", "sponsor_distributor_number",
+               "sponsor_name", "sponsor_phone"}
     assigns, values = ["flow_stage = ?", "updated_at = CURRENT_TIMESTAMP"], [stage]
     for key, value in fields.items():
         if key not in allowed:
@@ -1915,3 +2003,255 @@ def get_member(phone: str):
             (last10,),
         ).fetchone()
         return dict(row) if row else None
+
+
+# ---------------------------------------------------------------------------
+# Ficha verificada de socios y distribuidores (descuento automático y red)
+# ---------------------------------------------------------------------------
+
+def normalize_empresario_id(empresario_id: str) -> str:
+    return _normalize_distributor_id(empresario_id)
+
+
+def _digits10(phone: str) -> str:
+    return re.sub(r"\D", "", phone or "")[-10:]
+
+
+def save_verified_profile(phone: str, *, kind: str, discount_pct: float = None, empresario_id: str = None,
+                          name: str = None, scope: str = "general", notes: str = None, verified_by: str = None,
+                          sponsor_empresario_id: str = None, sponsor_phone: str = None, address: str = None) -> None:
+    """Guarda (o actualiza) la ficha de quien Belén/Yeni ya verificaron. Solo sobrescribe los campos
+    que se dan, para no borrar el patrocinador o la dirección registrados antes."""
+    upsert_customer(phone, name=name or None)
+    fields = {
+        "profile_kind": kind,
+        "member_discount_pct": discount_pct,
+        "empresario_id": (empresario_id or "").strip() or None,
+        "discount_scope": scope if discount_pct is not None else None,
+        "discount_notes": notes,
+        "discount_verified_by": verified_by,
+        "sponsor_empresario_id": (sponsor_empresario_id or "").strip() or None,
+        "sponsor_phone": sponsor_phone,
+        "address": address,
+    }
+    fields = {k: v for k, v in fields.items() if v is not None}
+    assigns = [f"{k} = ?" for k in fields] + ["discount_verified_at = CURRENT_TIMESTAMP", "updated_at = CURRENT_TIMESTAMP"]
+    with _connection() as conn:
+        conn.execute(f"UPDATE customers SET {', '.join(assigns)} WHERE phone = ?", (*fields.values(), phone))
+
+
+def set_customer_empresario_id(phone: str, empresario_id: str) -> None:
+    """ID que dio un patrocinador al inscribir; solo se guarda si su ficha aún no tiene uno."""
+    upsert_customer(phone)
+    with _connection() as conn:
+        conn.execute(
+            "UPDATE customers SET empresario_id = ?, updated_at = CURRENT_TIMESTAMP "
+            "WHERE phone = ? AND (empresario_id IS NULL OR empresario_id = '')",
+            ((empresario_id or "").strip(), phone),
+        )
+
+
+def get_verified_profile(phone: str):
+    """Ficha con descuento verificado (socio activo o distribuidor validado), por 10 dígitos."""
+    last10 = _digits10(phone)
+    if len(last10) < 10:
+        return None
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM customers WHERE member_discount_pct IS NOT NULL AND substr(phone, -10) = ? "
+            "ORDER BY discount_verified_at DESC LIMIT 1",
+            (last10,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def get_profile_by_empresario_id(empresario_id: str):
+    wanted = _normalize_distributor_id(empresario_id)
+    if not wanted:
+        return None
+    with _connection() as conn:
+        rows = conn.execute("SELECT * FROM customers WHERE empresario_id IS NOT NULL AND empresario_id != ''").fetchall()
+    matches = [dict(r) for r in rows if _normalize_distributor_id(r["empresario_id"]) == wanted]
+    if not matches:
+        return None
+    # Si el mismo ID aparece en varios teléfonos, gana la ficha verificada más reciente.
+    matches.sort(key=lambda r: (r.get("discount_verified_at") or "", r.get("updated_at") or ""), reverse=True)
+    return matches[0]
+
+
+def find_leader(identifier: str):
+    """Líder por ID de empresario o por teléfono (10 dígitos)."""
+    profile = get_profile_by_empresario_id(identifier)
+    if profile:
+        return profile
+    last10 = _digits10(identifier)
+    if len(last10) == 10:
+        with _connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM customers WHERE substr(phone, -10) = ? AND empresario_id IS NOT NULL "
+                "AND empresario_id != '' LIMIT 1", (last10,),
+            ).fetchone()
+            return dict(row) if row else None
+    return None
+
+
+def set_commission_pct(phone: str, pct: float) -> None:
+    with _connection() as conn:
+        conn.execute("UPDATE customers SET commission_pct = ?, updated_at = CURRENT_TIMESTAMP WHERE phone = ?",
+                     (pct, phone))
+
+
+def list_direct_members(leader_empresario_id: str) -> list:
+    wanted = _normalize_distributor_id(leader_empresario_id)
+    with _connection() as conn:
+        rows = conn.execute("SELECT * FROM customers WHERE sponsor_empresario_id IS NOT NULL").fetchall()
+    return [dict(r) for r in rows if _normalize_distributor_id(r["sponsor_empresario_id"]) == wanted]
+
+
+# ---------------------------------------------------------------------------
+# Contabilidad de red y comisiones
+# ---------------------------------------------------------------------------
+
+def record_network_purchase(order_id: int, buyer_phone: str, buyer_name: str, buyer_empresario_id: str,
+                            leader_empresario_id: str, product: str, amount_public: float, discount_pct: float,
+                            amount_paid: float) -> bool:
+    with _connection() as conn:
+        return conn.execute(
+            "INSERT OR IGNORE INTO network_purchases (order_id, buyer_phone, buyer_name, buyer_empresario_id, "
+            "leader_empresario_id, product, amount_public, discount_pct, amount_paid) VALUES (?,?,?,?,?,?,?,?,?)",
+            (order_id, buyer_phone, buyer_name, buyer_empresario_id, leader_empresario_id, product, amount_public,
+             discount_pct, amount_paid),
+        ).rowcount > 0
+
+
+def list_network_purchases(start_utc: str, end_utc: str) -> list:
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM network_purchases WHERE created_at > ? AND created_at <= ? ORDER BY created_at, id",
+            (start_utc, end_utc),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def create_commission_run(period_key: str, start_utc: str, end_utc: str, label: str, lines: list):
+    """Crea el corte con sus líneas; None si ese periodo ya se generó (evita duplicados al reiniciar)."""
+    with _connection() as conn:
+        try:
+            cur = conn.execute(
+                "INSERT INTO commission_runs (period_key, period_start_utc, period_end_utc, label) VALUES (?,?,?,?)",
+                (period_key, start_utc, end_utc, label),
+            )
+        except sqlite3.IntegrityError:
+            return None
+        run_id = cur.lastrowid
+        for position, line in enumerate(lines, start=1):
+            conn.execute(
+                "INSERT INTO commission_lines (run_id, position, leader_empresario_id, leader_phone, leader_name, "
+                "purchases, volume, commission_pct, commission) VALUES (?,?,?,?,?,?,?,?,?)",
+                (run_id, position, line["leader_empresario_id"], line.get("leader_phone"), line.get("leader_name"),
+                 line["purchases"], line["volume"], line.get("commission_pct"), line.get("commission")),
+            )
+        return run_id
+
+
+def get_commission_run(run_id: int):
+    with _connection() as conn:
+        row = conn.execute("SELECT * FROM commission_runs WHERE id = ?", (run_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def get_open_commission_run():
+    """Corte más reciente que todavía no termina (revisión, corrección o entrega de comprobantes)."""
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM commission_runs WHERE status IN ('revision_control', 'correccion', 'validado') "
+            "ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def set_commission_run_status(run_id: int, status: str, validated_by: str = None, notes: str = None) -> None:
+    with _connection() as conn:
+        conn.execute(
+            "UPDATE commission_runs SET status = ?, validated_by = COALESCE(?, validated_by), "
+            "validated_at = CASE WHEN ? = 'validado' THEN CURRENT_TIMESTAMP ELSE validated_at END, "
+            "notes = COALESCE(?, notes) WHERE id = ?",
+            (status, validated_by, status, notes, run_id),
+        )
+
+
+def list_commission_lines(run_id: int) -> list:
+    with _connection() as conn:
+        rows = conn.execute("SELECT * FROM commission_lines WHERE run_id = ? ORDER BY position", (run_id,)).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_commission_line(line_id: int):
+    with _connection() as conn:
+        row = conn.execute("SELECT * FROM commission_lines WHERE id = ?", (line_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def update_commission_line(line_id: int, **fields) -> None:
+    allowed = {"leader_phone", "leader_name", "purchases", "volume", "commission_pct", "commission", "adjusted",
+               "proof_media_id", "delivery_status"}
+    unknown = set(fields) - allowed
+    if unknown:
+        raise ValueError(f"Campos no permitidos: {unknown}")
+    assigns = [f"{k} = ?" for k in fields]
+    if fields.get("delivery_status") == "entregado":
+        assigns.append("delivered_at = CURRENT_TIMESTAMP")
+    with _connection() as conn:
+        conn.execute(f"UPDATE commission_lines SET {', '.join(assigns)} WHERE id = ?", (*fields.values(), line_id))
+
+
+# ---------------------------------------------------------------------------
+# Actividad entrante y entregas en espera (ventana de 24 h de WhatsApp)
+# ---------------------------------------------------------------------------
+
+def touch_inbound(phone: str) -> None:
+    last10 = _digits10(phone)
+    if len(last10) < 10:
+        return
+    with _connection() as conn:
+        conn.execute(
+            "INSERT INTO inbound_activity (phone_last10, last_at) VALUES (?, CURRENT_TIMESTAMP) "
+            "ON CONFLICT(phone_last10) DO UPDATE SET last_at = CURRENT_TIMESTAMP",
+            (last10,),
+        )
+
+
+def hours_since_inbound(phone: str):
+    """Horas desde el último mensaje que nos mandó este teléfono, o None si nunca escribió."""
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT (julianday('now') - julianday(last_at)) * 24 AS hours FROM inbound_activity WHERE phone_last10 = ?",
+            (_digits10(phone),),
+        ).fetchone()
+        return row["hours"] if row else None
+
+
+def queue_delivery(phone: str, kind: str, ref_id: int) -> None:
+    last10 = _digits10(phone)
+    with _connection() as conn:
+        exists = conn.execute(
+            "SELECT 1 FROM pending_deliveries WHERE phone_last10 = ? AND kind = ? AND ref_id = ? AND delivered_at IS NULL",
+            (last10, kind, ref_id),
+        ).fetchone()
+        if not exists:
+            conn.execute("INSERT INTO pending_deliveries (phone_last10, kind, ref_id) VALUES (?, ?, ?)",
+                         (last10, kind, ref_id))
+
+
+def take_pending_deliveries(phone: str) -> list:
+    """Entregas en espera para este teléfono; las marca como entregadas al tomarlas."""
+    last10 = _digits10(phone)
+    with _connection() as conn:
+        rows = [dict(r) for r in conn.execute(
+            "SELECT * FROM pending_deliveries WHERE phone_last10 = ? AND delivered_at IS NULL ORDER BY id", (last10,),
+        )]
+        if rows:
+            marks = ",".join("?" for _ in rows)
+            conn.execute(f"UPDATE pending_deliveries SET delivered_at = CURRENT_TIMESTAMP WHERE id IN ({marks})",
+                         [r["id"] for r in rows])
+        return rows
